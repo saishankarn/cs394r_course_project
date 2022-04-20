@@ -1,6 +1,7 @@
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
+import numpy as np
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -10,11 +11,15 @@ class CruiseCtrlEnv(gym.Env):
 		self.max_acc = 0.5 
 		self.safety_dist = 2
 		self.violating_safety_dist_reward = -10
-		self.allowed_actions = [-1, -0.5, 0, 0.5, 1]
 
 		self.max_episode_steps = 100
 		self.episode_steps = 0
 		self.done = False
+
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
+		self.action_space = gym.spaces.Box(low=-1.0, high=1.0, shape=(1,))
+		self.action_low = -1.0 
+		self.action_high = 1.0
 
 		# front vehicle specifications and variables
 		self.fv_start_dist = 50 
@@ -26,13 +31,13 @@ class CruiseCtrlEnv(gym.Env):
 
 	def step(self, action):
 		# next state transition
-
-		acc = self.allowed_actions[action] * self.max_acc  
+		action = np.clip(action, self.action_low, self.action_high)[0]
+		acc = action * self.max_acc  
 		dist_traveled = self.ego_vel + 0.5*acc
 		self.ego_vel += acc
 		self.fv_dist -= dist_traveled
 
-		next_state = [self.ego_vel, self.fv_dist]
+		next_state = np.array([self.ego_vel, self.fv_dist], dtype=np.float32)
 
 		# reward for the state transition
 		reward = dist_traveled
@@ -45,7 +50,7 @@ class CruiseCtrlEnv(gym.Env):
 
 		self.episode_steps += 1
 
-		return next_state, reward, self.done
+		return next_state, reward, self.done, {}
 
 	def reset(self):
 		# resets the env and returns the starting state and done=False
@@ -54,9 +59,9 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_acc = 0
 		self.done = False
 		self.episode_steps = 0
-		state = [self.ego_vel, self.fv_dist]
+		state = np.array([self.ego_vel, self.fv_dist], dtype=np.float32)
 
-		return state, self.done
+		return state
 
 	def render(self, close=False):
 		return None

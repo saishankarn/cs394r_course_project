@@ -2,19 +2,13 @@
 import gym 
 import gym_cruise_ctrl 
 
-from reinforce import REINFORCE, PiApproximationWithNN, Baseline, VApproximationWithNN
+from stable_baselines3 import A2C
 
 env = gym.make('cruise-ctrl-v0')
 s, _ = env.reset()
 
 num_episodes = 1000 
 
-state_size = len(s)
-action_size = len(env.allowed_actions)
+model = A2C("MlpPolicy", env, verbose=1)
 
-lr = 0.001 
-
-pi = PiApproximationWithNN(state_size, action_size, lr)
-B = VApproximationWithNN(state_size, lr)
-
-REINFORCE(env,1,1000,pi,B)
+model.learn(total_timesteps=100000)
