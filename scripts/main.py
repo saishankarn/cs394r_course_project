@@ -11,4 +11,5 @@ num_episodes = 1000
 
 model = A2C("MlpPolicy", env, verbose=1)
 
-model.learn(total_timesteps=100000)
+#model.learn(total_timesteps=100000) 
+env.render()
