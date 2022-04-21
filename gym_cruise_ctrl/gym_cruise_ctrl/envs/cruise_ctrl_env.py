@@ -1,7 +1,9 @@
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
-import numpy as np
+import numpy as np 
+
+import cv2
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -10,7 +12,7 @@ class CruiseCtrlEnv(gym.Env):
 		# environment specifications
 		self.max_acc = 0.5 
 		self.safety_dist = 2
-		self.violating_safety_dist_reward = -10
+		self.violating_safety_dist_reward = -1000
 
 		self.max_episode_steps = 100
 		self.episode_steps = 0
@@ -27,7 +29,6 @@ class CruiseCtrlEnv(gym.Env):
 
 		# ego vehicle variables
 		self.ego_vel = 0
-		self.ego_acc = 0
 
 	def step(self, action):
 		# next state transition
@@ -56,7 +57,6 @@ class CruiseCtrlEnv(gym.Env):
 		# resets the env and returns the starting state and done=False
 		self.fv_dist = self.fv_start_dist
 		self.ego_vel = 0 
-		self.ego_acc = 0
 		self.done = False
 		self.episode_steps = 0
 		state = np.array([self.ego_vel, self.fv_dist], dtype=np.float32)
@@ -64,4 +64,14 @@ class CruiseCtrlEnv(gym.Env):
 		return state
 
 	def render(self, close=False):
+		image = np.zeros((500, 500))
+		line1_start_pt = (0, 250) 
+		line1_end_pt = (500, 250)
+		line2_start_pt = (0, 350)
+		line2_end_pt = (500, 350)
+
+		cv2.line(image, line1_start_pt, line1_end_pt, 1, 2)
+		cv2.line(image, line2_start_pt, line2_end_pt, 1, 2)
+		cv2.imshow('cruise control', image)
+		cv2.waitKey(1000)
 		return None
