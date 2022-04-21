@@ -11,4 +11,12 @@ num_episodes = 1000
 
 model = A2C("MlpPolicy", env, verbose=1)
 
-model.learn(total_timesteps=100000) 
+model.learn(total_timesteps=1000000) 
+
+obs = env.reset()
+for i in range(100):
+    print(obs)
+    action, _states = model.predict(obs, deterministic=True)
+    obs, reward, done, info = env.step(action)
+    print(action, reward)
+    #env.render()
