@@ -1,4 +1,3 @@
-from math import dist
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
@@ -66,7 +65,7 @@ class CruiseCtrlEnv(gym.Env):
 
 		# Next state transition
 		fv_acc = 0.25*np.random.randn()
-		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)[0]
+		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		fv_acc = fv_acc*self.max_acc
 		
 		action = np.clip(action, self.action_low, self.action_high)[0]
