@@ -55,6 +55,8 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_init_vel = max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
 
+		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
+
 	def step(self, action):
 		fv_pos  = self.fv_state[0]
 		fv_vel  = self.fv_state[1]
@@ -81,18 +83,20 @@ class CruiseCtrlEnv(gym.Env):
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
-		# reward for the state transition
+		self.state = self.fv_state - self.ego_state
+
+		# Reward for the state transition
 		reward = dist_trav
-		if self.fv_dist < self.safety_dist:
+		if rel_dis < self.safety_dist:
 			reward += self.violating_safety_dist_reward 
 
-		# updating the done variable
-		if self.fv_dist <= 0.5 or self.episode_steps >= self.max_episode_steps:
+		# Updating the done variable
+		if rel_dis < 0.5 or self.episode_steps >= self.max_episode_steps:
 			self.done = True 
 
 		self.episode_steps += 1
 
-		return self.ego_state, reward, self.done, {}
+		return self.state, reward, self.done, {}
 
 	def reset(self):
 		# resets the env and returns the starting state and done=False
