@@ -2,16 +2,16 @@
 import gym 
 import gym_cruise_ctrl 
 
-from stable_baselines3 import A2C
+from stable_baselines3 import PPO
 
 env = gym.make('cruise-ctrl-v0')
 s, _ = env.reset()
 
 num_episodes = 1000 
 
-model = A2C("MlpPolicy", env, verbose=1)
+model = PPO("MlpPolicy", env, verbose=1)
 
-model.learn(total_timesteps=1000000) 
+model.learn(total_timesteps=10)
 
 obs = env.reset()
 for i in range(100):
@@ -20,3 +20,4 @@ for i in range(100):
     obs, reward, done, info = env.step(action)
     print(action, reward)
     #env.render()
+    
