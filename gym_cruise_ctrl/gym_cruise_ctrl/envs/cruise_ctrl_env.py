@@ -2,7 +2,9 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
-import cv2
+from os import path
+import pygame
+from pygame import gfxdraw
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -46,16 +48,39 @@ class CruiseCtrlEnv(gym.Env):
 		### Initial conditions
 		"""
 		# Front vehicle
-		self.fv_init_pos = max(20*np.random.randn() + 100, 10) # (100 +- 20)m
-		self.fv_init_vel = min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph 
+		self.fv_init_pos = self.InitializeFvPos()
+		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
 
 		# Ego vehicle
-		self.ego_init_pos = 0
-		self.ego_init_vel = max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+		self.ego_init_pos = self.InitializeEgoPos()
+		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
 
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
+
+		"""
+		### Visualizer Parameters
+		"""
+		self.screen_dim = 500
+		self.screen = None
+
+
+
+	def InitializeFvPos(self):
+		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+
+	def InitializeFvVel(self):
+		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
+	
+	def InitializeEgoPos(self):
+		return 0
+
+	def InitializeEgoVel(self):
+		return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+	
+
+
 
 	def step(self, action):
 		fv_pos  = self.fv_state[0]
@@ -107,31 +132,54 @@ class CruiseCtrlEnv(gym.Env):
 		### reset front and ego vehicle states to initial conditions
 
 		# Front vehicle
-		self.fv_init_pos = max(20*np.random.randn() + 100, 10) # (100 +- 20)m
-		self.fv_init_vel = min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph 
+		self.fv_init_pos = self.InitializeFvPos()
+		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
 
 		# Ego vehicle
-		self.ego_init_pos = 0
-		self.ego_init_vel = max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+		self.ego_init_pos = self.InitializeEgoPos()
+		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
 
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 
 		return self.state
 
-	def render(self, close=False):
-		image = np.zeros((500, 500))
-		line1_start_pt = (0, 200)
-		line1_end_pt = (500, 200)
-		line2_start_pt = (0, 300)
-		line2_end_pt = (500, 300)
+	# def render(self, close=False):
+	# 	image = np.zeros((500, 500))
+	# 	line1_start_pt = (0, 200)
+	# 	line1_end_pt = (500, 200)
+	# 	line2_start_pt = (0, 300)
+	# 	line2_end_pt = (500, 300)
 
-		cv2.line(image, line1_start_pt, line1_end_pt, 1, 2)
-		cv2.line(image, line2_start_pt, line2_end_pt, 1, 2)
+	# 	cv2.line(image, line1_start_pt, line1_end_pt, 1, 2)
+	# 	cv2.line(image, line2_start_pt, line2_end_pt, 1, 2)
 		
 		
 		
-		cv2.imshow('cruise control', image)
-		cv2.waitKey(5000)
-		return None
+	# 	cv2.imshow('cruise control', image)
+	# 	cv2.waitKey(5000)
+	# 	return None
+
+	def render(self, mode="human"):
+		
+		if self.screen == None:
+			pygame.init()
+			pygame.display.init()
+
+			self.screen = pygame.display.set_mode([self.screen_dim, self.screen_dim])
+
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				pygame.display.quit()
+				pygame.quit()
+
+		self.screen.fill((255, 255, 255))
+		pygame.draw.circle(self.screen, (0,0,255), (self.screen_dim*2/3,self.screen_dim/2), 25)
+		pygame.draw.circle(self.screen, (255,0,0), (self.screen_dim*(2/3 - 1/3*self.state[0]/self.fv_init_pos), self.screen_dim/2), 25)
+		pygame.display.flip()
+		pygame.time.delay(33)
+
+	def close(self):
+		pygame.display.quit()
+		pygame.quit()
