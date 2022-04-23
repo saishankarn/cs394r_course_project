@@ -89,7 +89,7 @@ class CruiseCtrlEnv(gym.Env):
 		ego_vel = self.ego_state[1]
 
 		# Next state transition
-		fv_acc = 0.25*np.random.randn()
+		fv_acc = 0.25*np.random.randn()*0
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		fv_acc = fv_acc*self.max_acc
 		
@@ -175,8 +175,8 @@ class CruiseCtrlEnv(gym.Env):
 				pygame.quit()
 
 		self.screen.fill((255, 255, 255))
-		pygame.draw.circle(self.screen, (0,0,255), (self.screen_dim*2/3,self.screen_dim/2), 25)
-		pygame.draw.circle(self.screen, (255,0,0), (self.screen_dim*(2/3 - 1/3*self.state[0]/self.fv_init_pos), self.screen_dim/2), 25)
+		pygame.draw.circle(self.screen, (0,0,255), (self.screen_dim*9/10,self.screen_dim/2), 15)
+		pygame.draw.circle(self.screen, (255,0,0), (self.screen_dim*(9/10 - 2/10*self.state[0]/self.fv_init_pos), self.screen_dim/2), 15)
 		pygame.display.flip()
 		pygame.time.delay(33)
 
