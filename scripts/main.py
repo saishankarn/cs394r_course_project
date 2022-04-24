@@ -1,5 +1,8 @@
 # the code tries to implement an RL agent to the cruise-ctrl-v0 env 
+from cProfile import label
+from distutils.log import info
 from math import dist
+from turtle import color
 import gym 
 import gym_cruise_ctrl
 import matplotlib.pyplot as plt
@@ -13,36 +16,61 @@ env = gym.make('cruise-ctrl-v0')
 
 model = PPO("MlpPolicy", env, verbose=1, gamma = 0.99)
 
-# model.learn(total_timesteps=100000)
-# model.save("saved_models/PPO_cruise_ctrl") 
+model.learn(total_timesteps = 10**5)
+model.save("saved_models/PPO2_cruise_ctrl") 
 
-model = PPO.load("saved_models/PPO_cruise_ctrl")
+"""
+### Validate results
+"""
+model = PPO.load("saved_models/PPO2_cruise_ctrl")
+
+total_reward_list = [0]
+rel_dist_list = []
+fv_pos_list = []
+ego_pos_list = []
 
 obs = env.reset()
-total_reward_list = [0]
-dist_list = []
+
 while True:
-    
-    # action = env.action_space.sample()
-    # action = np.array([0.5])
     action, _ = model.predict(obs)
-    obs, reward, done, _ = env.step(action)
+    obs, reward, done, info = env.step(action)
+    # env.render()
+
+    # Gather results for plotting
     total_reward_list.append(total_reward_list[-1] + reward)
-    dist_list.append(obs[0])
-    env.render()
+    rel_dist_list.append(obs[0])
+    fv_pos_list.append(info["fv_pos"])
+    ego_pos_list.append(info["ego_pos"])
+
+    
     if done:
         break
 
-env.close() 
+del total_reward_list[0]
+# env.close() 
 
-fig, axes = plt.subplots(2,1)
+"""
+### Generate Plots
+"""
+print(rel_dist_list)
+# print(fv_pos_list)
+# print(ego_pos_list)
+fig, axes = plt.subplots(3,1)
 
 axes[0].plot(total_reward_list)
-del total_reward_list[0]
-axes[1].plot(dist_list)
+axes[1].plot(rel_dist_list)
+axes[2].plot(fv_pos_list, color = 'b', label = 'Front vehicle')
+axes[2].plot(ego_pos_list, color = 'r',  label = 'Ego vehicle')
 
-axes[1].set_xlabel('Time steps')
-axes[0].set_ylabel('Total reward accumulated')
-axes[1].set_ylabel('Distance between vehicles')
+axes[0].title.set_text('Total reward accumulated over time')
+axes[1].title.set_text('Distance between vehicles over time')
+axes[2].title.set_text('Position of front and ego vehicles')
 
+axes[2].set_xlabel('Time steps')
+
+axes[0].set_ylabel('Total reward')
+axes[1].set_ylabel('Distance (m)')
+axes[2].set_ylabel('Position (m)')
+
+plt.legend
 plt.show()
