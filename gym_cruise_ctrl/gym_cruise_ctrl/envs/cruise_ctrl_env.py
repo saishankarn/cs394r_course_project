@@ -5,6 +5,28 @@ import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
+import random
+
+class NoisyDepth():
+
+	def __init__(self):
+
+		self.mean_poly = np.array([2.04935612e-04, -7.82411148e-03, 1.12252551e-01,-6.87136912e-01, 1.62028820e+00, -1.39133046e+00])
+		self.std_poly = np.array([-2.07552793e-04, 8.29502928e-03, -1.34784916e-01, 1.03997887e+00, -2.43212328e+00, 2.79613122e+00])
+		self.degree = np.shape(self.mean_poly)[0]
+		self.bin_range = 5
+
+	def __call__(self, true_depth):
+		
+		bin_val = int(true_depth / self.bin_range) 
+		poly_feat = np.array([bin_val ** i for i in reversed(range(self.degree))])
+		mean = np.dot(poly_feat, self.mean_poly) 
+		std = np.dot(poly_feat, self.std_poly)
+
+		noise = np.random.normal(mean, std)
+
+		return true_depth + noise
+
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -15,7 +37,7 @@ class CruiseCtrlEnv(gym.Env):
 			The action is a scalar in the range `[-1, 1]` that multiplies the max_acc
 			to give the acceleration of the ego vehicle. 
 		"""
-		self.max_acc = 0.5	# 1.5 m/s^2 
+		self.max_acc = 1.5	# 1.5 m/s^2 
 
 		self.action_low = -1.0 
 		self.action_high = 1.0
@@ -37,6 +59,8 @@ class CruiseCtrlEnv(gym.Env):
 		self.fv_max_vel = 30 # 30m/s or 70mph
 		self.delt = 1 # 1s time step 
 		self.reward_scaling_const = 1000 # to scale down the reward by this value
+		self.sensing_range = 50
+		self.depth_noise_model = NoisyDepth()
 
 		"""
 		### Episodic Task
@@ -66,24 +90,17 @@ class CruiseCtrlEnv(gym.Env):
 		self.screen_dim = 500
 		self.screen = None
 
-
-
-	def InitializeFvPos(self):
-		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
-		#return 100
-
-	def InitializeFvVel(self):
-		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
-		#return 25
-
 	def InitializeEgoPos(self):
 		return 0
 
 	def InitializeEgoVel(self):
 		return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 	
+	def InitializeFvPos(self):
+		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
-
+	def InitializeFvVel(self):
+		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 
 	def step(self, action):
 		fv_pos  = self.fv_state[0]
@@ -114,7 +131,9 @@ class CruiseCtrlEnv(gym.Env):
 
 		self.state = self.fv_state - self.ego_state
 		self.state[0] = self.state[0] / self.fv_max_vel
-		self.state[1] = self.state[1] / self.init_gap
+		self.state[1] = self.state[1] / self.sensing_range
+		if self.state[1] > 1:
+			self.state[1] = 1
 
 		# Reward for the state transition
 		reward = (ego_dist_trav - fv_dist_trav) / self.reward_scaling_const
@@ -153,7 +172,9 @@ class CruiseCtrlEnv(gym.Env):
 
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 		self.state[0] = self.state[0] / self.fv_max_vel
-		self.state[1] = self.state[1] / self.init_gap
+		self.state[1] = self.state[1] / self.sensing_range
+		if self.state[1] > 1:
+			self.state[1] = 1
 
 		return self.state
 

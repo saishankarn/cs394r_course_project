@@ -10,12 +10,15 @@ env = gym.make('cruise-ctrl-v0')
 vec_env = make_vec_env('cruise-ctrl-v0', n_envs=50)
 s, _ = env.reset()
 
+print(env.depth_noise_model(5))
+
+'''
 num_episodes = 1000 
 
 model = PPO("MlpPolicy", env, verbose=1, gamma = 0.99)
 
 model.learn(total_timesteps=10000000)
-'''
+
 obs = env.reset()
 for i in range(100):
     print("state ", obs)
