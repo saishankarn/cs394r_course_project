@@ -3,6 +3,27 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 import numpy as np
 import cv2
+import random
+
+class NoisyDepth():
+
+	def __init__(self):
+
+		self.mean_poly = np.array([2.04935612e-04, -7.82411148e-03, 1.12252551e-01,-6.87136912e-01, 1.62028820e+00, -1.39133046e+00])
+		self.std_poly = np.array([-2.07552793e-04, 8.29502928e-03, -1.34784916e-01, 1.03997887e+00, -2.43212328e+00, 2.79613122e+00])
+		self.degree = np.shape(self.mean_poly)[0]
+		self.bin_range = 5
+
+	def __call__(self, true_depth):
+		
+		bin_val = max(int(true_depth / self.bin_range) - 1, 0)
+		poly_feat = np.array([bin_val ** i for i in reversed(range(self.degree))])
+		mean = np.dot(poly_feat, self.mean_poly) 
+		std = np.dot(poly_feat, self.std_poly)
+
+		noise = np.random.normal(mean, std)
+
+		return true_depth + noise
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -34,6 +55,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.fv_min_vel = 20 # 20m/s or 50mph
 		self.fv_max_vel = 30 # 30m/s or 70mph
 		self.delt = 1 # 1s time step 
+		self.depth_noise_model = NoisyDepth()
 
 		"""
 		### Episodic Task
