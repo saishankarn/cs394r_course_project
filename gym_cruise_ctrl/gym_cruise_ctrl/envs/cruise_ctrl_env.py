@@ -50,12 +50,12 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### Initial conditions
 		"""
-		# Front vehicle
+		### Front vehicle
 		self.fv_init_pos = self.InitializeFvPos()
 		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
 
-		# Ego vehicle
+		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
@@ -71,16 +71,16 @@ class CruiseCtrlEnv(gym.Env):
 
 
 	def InitializeFvPos(self):
-		return max(20*np.random.randn()*0 + 100, 10) # (100 +- 20)m
+		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
 	def InitializeFvVel(self):
-		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))*0	# (25 +-5)m/s or 60mph
+		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 	
 	def InitializeEgoPos(self):
 		return 0
 
 	def InitializeEgoVel(self):
-		return max(5*np.random.randn()*0 + 10, 0)	# (10 +-5)m/s or 30mph
+		return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 	
 
 
@@ -92,31 +92,32 @@ class CruiseCtrlEnv(gym.Env):
 		ego_vel = self.ego_state[1] 
 
 		"""
-		# Front vehicle state transition
+		### Front vehicle state transition
 		"""
-		# Acceleration input to the front vehicle
+		### Acceleration input to the front vehicle
 		fv_acc = 0.25*np.random.randn()
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
-		# fv_acc = fv_acc*self.max_acc
-		fv_acc = 0 # Front vehicle moves with constant velocity
+		fv_acc = fv_acc*self.max_acc
+		# fv_acc = 0 # Front vehicle moves with constant velocity
 		
-		# State update
+		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		fv_pos = fv_pos + fv_dist_trav 
 		fv_vel = fv_vel + fv_acc*self.delt
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
 		"""
-		# Ego vehicle state transition
+		### Ego vehicle state transition
 		"""
-		# Acceleration input to the ego vehicle
+		### Acceleration input to the ego vehicle
 		action = np.clip(action, self.action_low, self.action_high)[0]
+		# print(action)
 		ego_acc = action*self.max_acc
 
-		# State update
+		### State update
 		ego_dist_trav = ego_vel*self.delt + 0.5*ego_acc*self.delt**2
 		ego_pos = ego_pos + ego_dist_trav 
-		ego_vel = ego_vel + ego_acc*self.delt
+		ego_vel = min(ego_vel + ego_acc*self.delt, self.ego_max_vel)
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
 		"""
@@ -130,17 +131,17 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		# Reward function
 		"""
-		# Reward for moving forward
+		### Reward for moving forward
 		# reward = (ego_dist_trav - fv_dist_trav) / self.ego_max_dist
 		reward = ego_dist_trav/self.ego_max_dist
 		
-		# Reward for being too close to the front vehicle
+		### Reward for being too close to the front vehicle
 		rel_dis = fv_pos - ego_pos
 		if rel_dis < self.safety_dist:
 			print('closer than safety distance')
 			reward = self.violating_safety_dist_reward
 
-		# Terminating the episode
+		### Terminating the episode
 		if rel_dis < 0.5 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
 			self.done = True 
@@ -160,8 +161,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### Reset the enviornment
 		"""
-		# resets the env and returns the starting state and done=False
-		# reset episodic task flags and iterators to initial values
+		### Resets the env and returns the starting state and done=False
+		### Reset episodic task flags and iterators to initial values
 		self.done = False
 		self.episode_steps = 0
 		
@@ -169,19 +170,19 @@ class CruiseCtrlEnv(gym.Env):
 		### Reset states to initial conditions
 		"""
 
-		# Front vehicle
+		### Front vehicle
 		self.fv_init_pos = self.InitializeFvPos()
 		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
 
-		# Ego vehicle
+		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
 
 		# self.init_gap = self.fv_init_pos - self.ego_init_pos
 
-		# MDP state
+		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 		
 		# self.state[0] = self.state[0] / self.fv_max_vel

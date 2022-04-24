@@ -8,21 +8,19 @@ import gym_cruise_ctrl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from stable_baselines3 import PPO, A2C
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
-from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3 import PPO, A2C, SAC
 
 env = gym.make('cruise-ctrl-v0')
 
-model = PPO("MlpPolicy", env, verbose=1, gamma = 0.99)
+model = SAC("MlpPolicy", env, verbose=1)
 
-model.learn(total_timesteps = 10**5)
-model.save("saved_models/PPO2_cruise_ctrl") 
+# model.learn(total_timesteps = 10**5)
+# model.save("saved_models/SAC_cruise_ctrl") 
 
 """
 ### Validate results
 """
-model = PPO.load("saved_models/PPO2_cruise_ctrl")
+model = SAC.load("saved_models/SAC_cruise_ctrl")
 
 total_reward_list = [0]
 rel_dist_list = []
@@ -34,7 +32,7 @@ obs = env.reset()
 while True:
     action, _ = model.predict(obs)
     obs, reward, done, info = env.step(action)
-    # env.render()
+    env.render()
 
     # Gather results for plotting
     total_reward_list.append(total_reward_list[-1] + reward)
@@ -47,12 +45,13 @@ while True:
         break
 
 del total_reward_list[0]
-# env.close() 
+env.close() 
 
 """
 ### Generate Plots
 """
-print(rel_dist_list)
+# print(total_reward_list)
+# print(rel_dist_list)
 # print(fv_pos_list)
 # print(ego_pos_list)
 fig, axes = plt.subplots(3,1)
