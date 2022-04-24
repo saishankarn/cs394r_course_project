@@ -5,6 +5,7 @@ import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
+from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -29,23 +30,25 @@ class CruiseCtrlEnv(gym.Env):
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
 
 		"""
+		### Episodic Task
+		"""
+		self.max_episode_steps = 100
+		self.episode_steps = 0
+		self.done = False
+
+		"""
 		### Environment Specifications   
 		"""
 		self.safety_dist = 5	# Required distance between the ego and front vehicle
 		self.violating_safety_dist_reward = -10	# Reward for getting too close to the front car
 		self.fv_min_vel = 20 # 20m/s or 50mph
 		self.fv_max_vel = 30 # 30m/s or 70mph
+		self.fv_max_acc = 1  # 1m/s^2
 		self.ego_max_vel = 40 # 40m/s or 90mph
 		self.delt = 1 # 1s time step 
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
-		self.reward_scaling_const = 1000 # to scale down the reward by this value
-
-		"""
-		### Episodic Task
-		"""
-		self.max_episode_steps = 100
-		self.episode_steps = 0
-		self.done = False
+		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5)
+		self.fv_input = self.fv_input_gen.generate()
 
 		"""
 		### Initial conditions
@@ -95,15 +98,14 @@ class CruiseCtrlEnv(gym.Env):
 		### Front vehicle state transition
 		"""
 		### Acceleration input to the front vehicle
-		fv_acc = 0.25*np.random.randn()
+		fv_acc = self.fv_input[self.episode_steps]
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
-		fv_acc = fv_acc*self.max_acc
-		# fv_acc = 0 # Front vehicle moves with constant velocity
+		fv_acc = fv_acc*self.fv_max_acc
 		
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		fv_pos = fv_pos + fv_dist_trav 
-		fv_vel = fv_vel + fv_acc*self.delt
+		fv_vel = min(max(fv_vel + fv_acc*self.delt, 0), self.fv_max_vel)
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
 		"""
@@ -111,7 +113,6 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### Acceleration input to the ego vehicle
 		action = np.clip(action, self.action_low, self.action_high)[0]
-		# print(action)
 		ego_acc = action*self.max_acc
 
 		### State update
@@ -174,6 +175,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.fv_init_pos = self.InitializeFvPos()
 		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
+		self.fv_input = self.fv_input_gen.generate()
 
 		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
