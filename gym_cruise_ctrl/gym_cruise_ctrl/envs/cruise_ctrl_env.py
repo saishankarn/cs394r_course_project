@@ -15,7 +15,7 @@ class CruiseCtrlEnv(gym.Env):
 			The action is a scalar in the range `[-1, 1]` that multiplies the max_acc
 			to give the acceleration of the ego vehicle. 
 		"""
-		self.max_acc = 1.5	# 1.5 m/s^2 
+		self.max_acc = 0.5	# 1.5 m/s^2 
 
 		self.action_low = -1.0 
 		self.action_high = 1.0
@@ -32,10 +32,11 @@ class CruiseCtrlEnv(gym.Env):
 		### Environment Specifications   
 		"""
 		self.safety_dist = 2	# Required distance between the ego and front vehicle
-		self.violating_safety_dist_reward = -1000	# Reward for getting too close to the front car
+		self.violating_safety_dist_reward = -1	# Reward for getting too close to the front car
 		self.fv_min_vel = 20 # 20m/s or 50mph
 		self.fv_max_vel = 30 # 30m/s or 70mph
 		self.delt = 1 # 1s time step 
+		self.reward_scaling_const = 1000 # to scale down the reward by this value
 
 		"""
 		### Episodic Task
@@ -86,37 +87,42 @@ class CruiseCtrlEnv(gym.Env):
 		fv_pos  = self.fv_state[0]
 		fv_vel  = self.fv_state[1]
 		ego_pos = self.ego_state[0]
-		ego_vel = self.ego_state[1]
+		ego_vel = self.ego_state[1] 
 
 		# Next state transition
 		fv_acc = 0.25*np.random.randn()*0
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
-		fv_acc = fv_acc*self.max_acc
+		fv_acc = fv_acc*0#*self.max_acc
 		
 		action = np.clip(action, self.action_low, self.action_high)[0]
-		ego_acc = action*self.max_acc
+		ego_acc = action#*self.max_acc
 
-		fv_pos = fv_pos + fv_vel*self.delt + 0.5*fv_acc*self.delt**2
+		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
+		fv_pos = fv_pos + fv_dist_trav 
 		fv_vel = fv_vel + fv_acc*self.delt
 
-		dist_trav = ego_vel*self.delt
-		ego_pos = ego_pos + dist_trav + 0.5*ego_acc*self.delt**2
+		ego_dist_trav = ego_vel*self.delt + 0.5*ego_acc*self.delt**2
+		ego_pos = ego_pos + ego_dist_trav 
 		ego_vel = ego_vel + ego_acc*self.delt
-		
+
 		rel_dis = fv_pos - ego_pos
 
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
 		self.state = self.fv_state - self.ego_state
+		self.state[0] = self.state[0] / self.fv_max_vel
+		self.state[1] = self.state[1] / self.init_gap
 
 		# Reward for the state transition
-		reward = dist_trav
+		reward = (ego_dist_trav - fv_dist_trav) / self.reward_scaling_const
 		if rel_dis < self.safety_dist:
+			print('collided')
 			reward += self.violating_safety_dist_reward 
 
 		# Updating the done variable
 		if rel_dis < 0.5 or self.episode_steps >= self.max_episode_steps:
+			print("distance remaining : ", rel_dis)
 			self.done = True 
 
 		self.episode_steps += 1
@@ -139,27 +145,15 @@ class CruiseCtrlEnv(gym.Env):
 		# Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
-		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
+		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
+
+		self.init_gap = self.fv_init_pos - self.ego_init_pos
 
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
+		self.state[0] = self.state[0] / self.fv_max_vel
+		self.state[1] = self.state[1] / self.init_gap
 
 		return self.state
-
-	# def render(self, close=False):
-	# 	image = np.zeros((500, 500))
-	# 	line1_start_pt = (0, 200)
-	# 	line1_end_pt = (500, 200)
-	# 	line2_start_pt = (0, 300)
-	# 	line2_end_pt = (500, 300)
-
-	# 	cv2.line(image, line1_start_pt, line1_end_pt, 1, 2)
-	# 	cv2.line(image, line2_start_pt, line2_end_pt, 1, 2)
-		
-		
-		
-	# 	cv2.imshow('cruise control', image)
-	# 	cv2.waitKey(5000)
-	# 	return None
 
 	def render(self, mode="human"):
 		

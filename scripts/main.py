@@ -5,16 +5,18 @@ import gym_cruise_ctrl
 import matplotlib.pyplot as plt
 import numpy as np
 
-from stable_baselines3 import A2C
+from stable_baselines3 import PPO, A2C
+from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+from stable_baselines3.common.env_util import make_vec_env
 
 env = gym.make('cruise-ctrl-v0')
 
-model = A2C("MlpPolicy", env, verbose=1)
+model = PPO("MlpPolicy", env, verbose=1, gamma = 0.99)
 
 # model.learn(total_timesteps=100000)
-# model.save("saved_models/A2C_cruise_ctrl") 
+# model.save("saved_models/PPO_cruise_ctrl") 
 
-model = A2C.load("saved_models/A2C_cruise_ctrl")
+model = PPO.load("saved_models/PPO_cruise_ctrl")
 
 obs = env.reset()
 total_reward_list = [0]
