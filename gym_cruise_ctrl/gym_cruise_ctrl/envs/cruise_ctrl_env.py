@@ -16,10 +16,12 @@ class NoisyDepth():
 		self.std_poly = np.array([-2.07552793e-04, 8.29502928e-03, -1.34784916e-01, 1.03997887e+00, -2.43212328e+00, 2.79613122e+00])
 		self.degree = np.shape(self.mean_poly)[0]
 		self.bin_range = 5
+		self.min_bin_val = 0 
+		self.max_bin_val = 15
 
 	def __call__(self, true_depth):
 		
-		bin_val = max(int(true_depth / self.bin_range) - 1, 0)
+		bin_val = min(max(int(true_depth / self.bin_range) - 1, self.min_bin_val), self.max_bin_val)
 		poly_feat = np.array([bin_val ** i for i in reversed(range(self.degree))])
 		mean = np.dot(poly_feat, self.mean_poly) 
 		std = np.dot(poly_feat, self.std_poly)
@@ -27,7 +29,6 @@ class NoisyDepth():
 		noise = np.random.normal(mean, std)
 
 		return true_depth + noise
-
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -92,19 +93,27 @@ class CruiseCtrlEnv(gym.Env):
 		self.screen_dim = 500
 		self.screen = None
 
-
+		"""
+		### Logger Details
+		"""
+		self.distance_to_return_log = '/tmp/gym/sac/dist_log.txt'
+		self.file = open(self.distance_to_return_log, "w+")
+		self.training_ep = 0
 
 	def InitializeFvPos(self):
-		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+		#return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+		return 100
 
 	def InitializeFvVel(self):
-		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
-	
+		#return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
+		return 0
+
 	def InitializeEgoPos(self):
 		return 0
 
 	def InitializeEgoVel(self):
-		return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+		#return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+		return 0
 	
 
 
@@ -122,7 +131,7 @@ class CruiseCtrlEnv(gym.Env):
 		fv_acc = 0.25*np.random.randn()
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		fv_acc = fv_acc*self.max_acc
-		# fv_acc = 0 # Front vehicle moves with constant velocity
+		fv_acc = 0 # Front vehicle moves with constant velocity
 		
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
@@ -149,7 +158,9 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		self.state = self.fv_state - self.ego_state
 		# self.state[0] = self.state[0] / self.fv_max_vel # Normalizing state. Does this make sense?
-		# self.state[1] = self.state[1] / self.init_gap
+		# self.state[1] = self.state[1] / self.init_gap 
+		obs = self.state.copy()
+		obs[0] = self.depth_noise_model(obs[0])
 
 		
 		"""
@@ -158,6 +169,7 @@ class CruiseCtrlEnv(gym.Env):
 		### Reward for moving forward
 		# reward = (ego_dist_trav - fv_dist_trav) / self.ego_max_dist
 		reward = ego_dist_trav/self.ego_max_dist
+		#reward = reward / 10
 		
 		### Reward for being too close to the front vehicle
 		rel_dis = fv_pos - ego_pos
@@ -168,6 +180,7 @@ class CruiseCtrlEnv(gym.Env):
 		### Terminating the episode
 		if rel_dis < 0.5 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
+			self.file.write(str(rel_dis) + ',' + str(self.training_ep) + "\n")
 			self.done = True 
 
 		self.episode_steps += 1
@@ -179,7 +192,7 @@ class CruiseCtrlEnv(gym.Env):
 			"ego_vel" : ego_pos
 		}
 
-		return self.state, reward, self.done, info
+		return obs, reward, self.done, info
 
 	def reset(self):
 		"""
@@ -189,6 +202,7 @@ class CruiseCtrlEnv(gym.Env):
 		### Reset episodic task flags and iterators to initial values
 		self.done = False
 		self.episode_steps = 0
+		self.training_ep += 1
 		
 		"""
 		### Reset states to initial conditions
@@ -208,11 +222,12 @@ class CruiseCtrlEnv(gym.Env):
 
 		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
+		obs = self.state.copy()
+		obs[0] = self.depth_noise_model(obs[0])
 		
-		# self.state[0] = self.state[0] / self.fv_max_vel
-		# self.state[1] = self.state[1] / self.init_gap
-
-		return self.state
+		# self.state[0] = self.state[0] / self.init_gap
+		# self.state[1] = self.state[1] / self.fv_max_vel
+		return obs
 
 	def render(self, mode="human"):
 		
