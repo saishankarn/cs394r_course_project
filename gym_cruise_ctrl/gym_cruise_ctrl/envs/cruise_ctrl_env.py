@@ -214,3 +214,11 @@ class CruiseCtrlEnv(gym.Env):
 	def close(self):
 		pygame.display.quit()
 		pygame.quit()
+
+
+	def GetTOCInitParams(self):
+		return self.ego_max_vel, self.max_acc, self.max_acc, self.delt
+
+	def GetEgoVehicleState(self):
+		return self.ego_state
+

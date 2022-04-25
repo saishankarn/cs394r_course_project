@@ -7,21 +7,25 @@ import gym
 import gym_cruise_ctrl
 import matplotlib.pyplot as plt
 import numpy as np
+from toc import OneDTimeOptimalControl
 
 from stable_baselines3 import PPO, A2C, SAC
 
 env = gym.make('cruise-ctrl-v0')
 
 model = SAC("MlpPolicy", env, verbose=1)
-
 # model.learn(total_timesteps = 10**5)
 # model.save("saved_models/SAC_cruise_ctrl") 
+model = SAC.load("saved_models/SAC_cruise_ctrl")
+
+"""
+### Initialize time optimal controller
+"""
+toc = OneDTimeOptimalControl(*env.GetTOCInitParams())
 
 """
 ### Validate results
 """
-model = SAC.load("saved_models/SAC_cruise_ctrl")
-
 total_reward_list = [0]
 rel_dist_list = []
 fv_pos_list = []
@@ -31,7 +35,10 @@ action_list = []
 obs = env.reset()
 
 while True:
-    action, _ = model.predict(obs)
+    # action, _ = model.predict(obs)
+    ego_state = env.GetEgoVehicleState()
+    action = np.array([toc.action(ego_state[1], obs[0])])
+    # action = np.array([toc.action(obs[1], obs[0])])
     obs, reward, done, info = env.step(action)
     env.render()
 
