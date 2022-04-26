@@ -28,7 +28,7 @@ class NoisyDepth():
 
 		noise = np.random.normal(mean, std)
 
-		return true_depth + noise
+		return true_depth #+ noise
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -222,11 +222,12 @@ class CruiseCtrlEnv(gym.Env):
 
 		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
-		obs = self.state.copy()
+		obs = np.zeros((3,))
 		obs[0] = self.depth_noise_model(obs[0])
+		obs[1] = self.depth_noise_model(obs[0]) 
 		
-		# self.state[0] = self.state[0] / self.init_gap
-		# self.state[1] = self.state[1] / self.fv_max_vel
+
+
 		return obs
 
 	def render(self, mode="human"):
