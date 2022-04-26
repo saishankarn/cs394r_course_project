@@ -7,6 +7,7 @@ import random
 from os import path
 import pygame
 from pygame import gfxdraw
+from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile
 
 class NoisyDepth():
 
@@ -28,7 +29,7 @@ class NoisyDepth():
 
 		noise = np.random.normal(mean, std)
 
-		return true_depth #+ noise
+		return true_depth + noise
 
 class CruiseCtrlEnv(gym.Env):
 
@@ -50,7 +51,7 @@ class CruiseCtrlEnv(gym.Env):
 			The observation is an ndarray of shape (2,) with each element in the range
 			`[-inf, inf]`.   
 		"""
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,))
 
 		"""
 		### Environment Specifications   
@@ -64,6 +65,8 @@ class CruiseCtrlEnv(gym.Env):
 		self.depth_noise_model = NoisyDepth()
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
 		self.reward_scaling_const = 1000 # to scale down the reward by this value
+		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5)
+		self.fv_input = self.fv_input_gen.generate()
 
 		"""
 		### Episodic Task
@@ -128,7 +131,7 @@ class CruiseCtrlEnv(gym.Env):
 		### Front vehicle state transition
 		"""
 		### Acceleration input to the front vehicle
-		fv_acc = 0.25*np.random.randn()
+		fv_acc = self.fv_input[self.episode_steps]
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		fv_acc = fv_acc*self.max_acc
 		fv_acc = 0 # Front vehicle moves with constant velocity
@@ -162,20 +165,28 @@ class CruiseCtrlEnv(gym.Env):
 		obs = self.state.copy()
 		obs[0] = self.depth_noise_model(obs[0])
 
+		"""
+		### Observation update
+		"""
+		obs = np.zeros((3,))
+		obs[0] = self.depth_noise_model(self.state[0])
+		obs[1] = self.prev_obs[0]
+		obs[2] = self.ego_state[1]
+		self.prev_obs = obs
 		
 		"""
 		# Reward function
 		"""
 		### Reward for moving forward
-		# reward = (ego_dist_trav - fv_dist_trav) / self.ego_max_dist
-		reward = ego_dist_trav/self.ego_max_dist
-		#reward = reward / 10
+		rel_dis = fv_pos - ego_pos
+		reward = 0 
+		if rel_dis >= self.safety_dist:
+			reward += ego_dist_trav/self.ego_max_dist
 		
 		### Reward for being too close to the front vehicle
-		rel_dis = fv_pos - ego_pos
 		if rel_dis < self.safety_dist:
 			print('closer than safety distance')
-			reward = self.violating_safety_dist_reward
+			reward += self.violating_safety_dist_reward
 
 		### Terminating the episode
 		if rel_dis < 0.5 or self.episode_steps >= self.max_episode_steps:
@@ -212,21 +223,21 @@ class CruiseCtrlEnv(gym.Env):
 		self.fv_init_pos = self.InitializeFvPos()
 		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
+		self.fv_input = self.fv_input_gen.generate()
 
 		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
 
-		# self.init_gap = self.fv_init_pos - self.ego_init_pos
-
 		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 		obs = np.zeros((3,))
-		obs[0] = self.depth_noise_model(obs[0])
-		obs[1] = self.depth_noise_model(obs[0]) 
-		
+		obs[0] = self.depth_noise_model(self.state[0])
+		obs[1] = self.depth_noise_model(self.state[0]) 
+		obs[2] = self.ego_state[1]
 
+		self.prev_obs = obs 
 
 		return obs
 
