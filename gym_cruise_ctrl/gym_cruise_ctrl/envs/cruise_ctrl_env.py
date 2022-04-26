@@ -7,6 +7,50 @@ import pygame
 from pygame import gfxdraw
 from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile
 
+class NoisyDepth():
+
+	def __init__(self):
+
+		self.mean_poly = np.array([2.04935612e-04, -7.82411148e-03, 1.12252551e-01,-6.87136912e-01, 1.62028820e+00, -1.39133046e+00])
+		self.std_poly = np.array([-2.07552793e-04, 8.29502928e-03, -1.34784916e-01, 1.03997887e+00, -2.43212328e+00, 2.79613122e+00])
+		self.degree = np.shape(self.mean_poly)[0]
+		self.bin_range = 5
+		self.min_bin_val = 0 
+		self.max_bin_val = 15
+
+	def __call__(self, true_depth):
+		
+		bin_val = min(max(int(true_depth / self.bin_range) - 1, self.min_bin_val), self.max_bin_val)
+		poly_feat = np.array([bin_val ** i for i in reversed(range(self.degree))])
+		mean = np.dot(poly_feat, self.mean_poly) 
+		std = np.dot(poly_feat, self.std_poly)
+
+		noise = np.random.normal(mean, std)
+
+		return true_depth + noise
+
+class NoisyVel():
+
+	def __init__(self):
+
+		self.mean = 0
+		self.std = 1
+		self.min_vel = 20 
+		self.max_vel = 30
+		self.bin_range = 5
+		self.min_bin_val = 0 
+		self.max_bin_val = 19
+		self.num_bins = 20
+
+
+	def __call__(self, true_vel, true_depth):
+
+		bin_val = min(max(int(true_depth / self.bin_range) - 1, self.min_bin_val), self.max_bin_val)
+		std_bin = (self.std / self.num_bins) * bin_val
+		noise = np.random.normal(self.mean, std_bin)
+		
+		return true_vel + noise
+
 class CruiseCtrlEnv(gym.Env):
 
 	def __init__(self): 
@@ -49,6 +93,8 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
 		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5)
 		self.fv_input = self.fv_input_gen.generate()
+		self.depth_noise_model = NoisyDepth()
+		self.vel_noise_model = NoisyVel()
 
 		"""
 		### Initial conditions
@@ -74,17 +120,19 @@ class CruiseCtrlEnv(gym.Env):
 
 
 	def InitializeFvPos(self):
-		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+		#return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+		return 100
 
 	def InitializeFvVel(self):
-		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
-	
+		#return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
+		return 0
+
 	def InitializeEgoPos(self):
 		return 0
 
 	def InitializeEgoVel(self):
-		return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
-	
+		#return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+		return 0
 
 
 
@@ -101,7 +149,8 @@ class CruiseCtrlEnv(gym.Env):
 		fv_acc = self.fv_input[self.episode_steps]
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		fv_acc = fv_acc*self.fv_max_acc
-		
+		fv_acc = 0
+
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		fv_pos = fv_pos + fv_dist_trav 
@@ -125,9 +174,13 @@ class CruiseCtrlEnv(gym.Env):
 		# MDP state update
 		"""
 		self.state = self.fv_state - self.ego_state
-		# self.state[0] = self.state[0] / self.fv_max_vel # Normalizing state. Does this make sense?
-		# self.state[1] = self.state[1] / self.init_gap
 
+		"""
+		# Observation update
+		"""
+		obs = self.state.copy()
+		obs[1] = self.vel_noise_model(obs[1], obs[0])
+		obs[0] = self.depth_noise_model(obs[0])
 		
 		"""
 		# Reward function
@@ -143,7 +196,7 @@ class CruiseCtrlEnv(gym.Env):
 			reward = self.violating_safety_dist_reward
 
 		### Terminating the episode
-		if rel_dis < 0.5 or self.episode_steps >= self.max_episode_steps:
+		if rel_dis < 4 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
 			self.done = True 
 
@@ -152,11 +205,13 @@ class CruiseCtrlEnv(gym.Env):
 		info = {
 			"fv_pos"  : fv_pos,
 			"fv_vel"  : fv_vel,
+			"fv_acc"  : fv_acc, 
 			"ego_pos" : ego_pos,
-			"ego_vel" : ego_pos
+			"ego_vel" : ego_vel,
+			"ego_acc" : ego_acc
 		}
 
-		return self.state, reward, self.done, info
+		return obs, reward, self.done, info
 
 	def reset(self):
 		"""
@@ -182,15 +237,15 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
 
-		# self.init_gap = self.fv_init_pos - self.ego_init_pos
-
 		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
-		
-		# self.state[0] = self.state[0] / self.fv_max_vel
-		# self.state[1] = self.state[1] / self.init_gap
 
-		return self.state
+		### Observation 
+		obs = self.state.copy()
+		obs[1] = self.vel_noise_model(obs[1], obs[0])
+		obs[0] = self.depth_noise_model(obs[0])
+
+		return obs
 
 	def render(self, mode="human"):
 		
