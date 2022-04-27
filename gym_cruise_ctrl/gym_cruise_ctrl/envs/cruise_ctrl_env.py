@@ -100,7 +100,8 @@ class CruiseCtrlEnv(gym.Env):
 		### Acceleration input to the front vehicle
 		fv_acc = self.fv_input[self.episode_steps]
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
-		fv_acc = fv_acc*self.fv_max_acc
+		fv_acc = fv_acc*self.fv_max_acc*0
+		print(fv_acc)
 		
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
