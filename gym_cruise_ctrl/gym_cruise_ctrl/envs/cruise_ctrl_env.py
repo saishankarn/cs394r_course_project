@@ -1,3 +1,6 @@
+"""
+Jai Shri Ram 
+"""
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
@@ -53,7 +56,7 @@ class NoisyVel():
 
 class CruiseCtrlEnv(gym.Env):
 
-	def __init__(self): 
+	def __init__(self, train=True, noise_required=False): 
 
 		"""
 		### Action Space
@@ -91,10 +94,14 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_max_vel = 40 # 40m/s or 90mph
 		self.delt = 1 # 1s time step 
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
-		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5)
-		self.fv_input = self.fv_input_gen.generate()
-		self.depth_noise_model = NoisyDepth()
-		self.vel_noise_model = NoisyVel()
+		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5) # class to generate the behaviour of the front vehicle
+		self.fv_input = self.fv_input_gen.generate() # the behaviour of the front vehicle
+		self.depth_noise_model = NoisyDepth() # depth noise model class
+		self.vel_noise_model = NoisyVel() # velocity noise model class 
+		self.noise_required = noise_required # whether noise is required or not
+
+		### for seed purposes 
+		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
 
 		"""
 		### Initial conditions
@@ -109,7 +116,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
 
-		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
+		self.state = self.fv_state - self.ego_state # The state is the relative position and speed 
 
 		"""
 		### Visualizer Parameters
@@ -120,19 +127,26 @@ class CruiseCtrlEnv(gym.Env):
 
 
 	def InitializeFvPos(self):
-		#return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
-		return 100
+		if self.train:
+			return 100 
+		else:
+			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
 	def InitializeFvVel(self):
-		#return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
-		return 0
+		if self.train:
+			return 0
+		else:
+			return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 
 	def InitializeEgoPos(self):
 		return 0
 
 	def InitializeEgoVel(self):
-		#return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
-		return 0
+		if self.train:
+			return 0
+		else:
+			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+
 
 
 
@@ -148,8 +162,10 @@ class CruiseCtrlEnv(gym.Env):
 		### Acceleration input to the front vehicle
 		fv_acc = self.fv_input[self.episode_steps]
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
-		fv_acc = fv_acc*self.fv_max_acc
-		fv_acc = 0
+		if self.train:
+			fv_acc = 0
+		else:
+			fv_acc = fv_acc*self.fv_max_acc
 
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
@@ -179,14 +195,14 @@ class CruiseCtrlEnv(gym.Env):
 		# Observation update
 		"""
 		obs = self.state.copy()
-		obs[1] = self.vel_noise_model(obs[1], obs[0])
-		obs[0] = self.depth_noise_model(obs[0])
+		if self.noise_required:
+			obs[1] = self.vel_noise_model(obs[1], obs[0])
+			obs[0] = self.depth_noise_model(obs[0])
 		
 		"""
 		# Reward function
 		"""
 		### Reward for moving forward
-		# reward = (ego_dist_trav - fv_dist_trav) / self.ego_max_dist
 		reward = ego_dist_trav/self.ego_max_dist
 		
 		### Reward for being too close to the front vehicle
@@ -196,7 +212,7 @@ class CruiseCtrlEnv(gym.Env):
 			reward = self.violating_safety_dist_reward
 
 		### Terminating the episode
-		if rel_dis < 4 or self.episode_steps >= self.max_episode_steps:
+		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
 			self.done = True 
 
@@ -213,7 +229,13 @@ class CruiseCtrlEnv(gym.Env):
 
 		return obs, reward, self.done, info
 
-	def reset(self):
+	def reset(self, seed=0):
+		"""
+		### setting the fixed seed for validation purposes
+		"""
+		if not self.train:
+			np.random.seed(seed)
+		
 		"""
 		### Reset the enviornment
 		"""
@@ -242,10 +264,11 @@ class CruiseCtrlEnv(gym.Env):
 
 		### Observation 
 		obs = self.state.copy()
-		obs[1] = self.vel_noise_model(obs[1], obs[0])
-		obs[0] = self.depth_noise_model(obs[0])
+		if self.noise_required:
+			obs[1] = self.vel_noise_model(obs[1], obs[0])
+			obs[0] = self.depth_noise_model(obs[0])
 
-		return obs
+		return obs 
 
 	def render(self, mode="human"):
 		

@@ -13,7 +13,8 @@ class PiecewiseLinearProfile():
     def generate(self):
         n = np.random.randint(self.n_min, self.n_max + 1)
         
-        anchor_x = np.array(pyrandom.sample(range(self.N), n))
+        #anchor_x = np.array(pyrandom.sample(range(self.N), n))
+        anchor_x = np.random.choice(self.N, n, replace=False)
         anchor_x.sort()
         anchor_x = np.insert(anchor_x, 0, 0)
         anchor_x = np.append(anchor_x, self.N)
