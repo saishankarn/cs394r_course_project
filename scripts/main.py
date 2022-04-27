@@ -60,7 +60,7 @@ def run(log_dir):
     ### Initializing the environment, logger, callback and the trainer functions
     """
 
-    env = gym.make('cruise-ctrl-v0', train=True, noise_required=False) 
+    env = gym.make('cruise-ctrl-v0', train=True, noise_required=True) 
     env = Monitor(env, log_dir) # Logs will be saved in log_dir/monitor.csv 
 
     # Create the callback: check every 1000 steps
