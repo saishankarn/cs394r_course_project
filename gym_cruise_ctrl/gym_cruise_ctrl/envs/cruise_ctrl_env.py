@@ -118,17 +118,10 @@ class CruiseCtrlEnv(gym.Env):
 
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed 
 
-		"""
-		### Visualizer Parameters
-		"""
-		self.screen_dim = 500
-		self.screen = None
-
-
 
 	def InitializeFvPos(self):
 		if self.train:
-			return 100 
+			return 100
 		else:
 			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
@@ -212,7 +205,7 @@ class CruiseCtrlEnv(gym.Env):
 			reward = self.violating_safety_dist_reward
 
 		### Terminating the episode
-		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
+		if rel_dis <= 0 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
 			self.done = True 
 
@@ -233,8 +226,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### setting the fixed seed for validation purposes
 		"""
-		if not self.train:
-			np.random.seed(seed)
+		# if not self.train:
+		# 	np.random.seed(seed)
 		
 		"""
 		### Reset the enviornment

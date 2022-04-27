@@ -24,8 +24,8 @@ class MPCLinear():
         self.R  = R
         self.T  = T
 
-        self.SAFETY_DIST = 5
-        self.MAX_ACC     = 1.5
+        self.SAFETY_DIST    = 5
+        self.THROTTLE_LIMIT = 1
 
     def action(self, x0, xref):
         X = cp.Variable((self.nx, self.T))
@@ -53,7 +53,7 @@ class MPCLinear():
 
         constraints += [X[:, 0] == x0]
         constraints += [X[0, :] >= self.SAFETY_DIST]
-        constraints += [cp.abs(U[0, :]) <= self.MAX_ACC]
+        constraints += [cp.abs(U[0, :]) <= self.THROTTLE_LIMIT]
 
         prob = cp.Problem(cp.Minimize(cost), constraints)
         # assert prob.is_dpp()
@@ -72,7 +72,7 @@ class MPCLinear():
 # B = np.array([[-1/2*Ts*Ts],
 #               [-Ts]])
 
-# T = 10
+# T = 100
 # t = np.arange(T)
 
 # Q = np.diag([10, 10])
@@ -81,7 +81,7 @@ class MPCLinear():
 
 # modelMPC = MPCLinear(A, B, Q, R, T)
 
-# x0 = [10, 2]
+# x0 = [145, 0]
 # xref = [5, 0]
 
 # u, y = modelMPC.action(x0, xref)
