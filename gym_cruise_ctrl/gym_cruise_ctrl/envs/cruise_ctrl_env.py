@@ -88,9 +88,9 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		self.safety_dist = 5	# Required distance between the ego and front vehicle
 		self.violating_safety_dist_reward = -10	# Reward for getting too close to the front car
-		self.fv_min_vel = 20 # 20m/s or 50mph
+		self.fv_min_vel = 10 # 10m/s or 30mph
 		self.fv_max_vel = 30 # 30m/s or 70mph
-		self.fv_max_acc = 1  # 1m/s^2
+		self.fv_max_acc = 0.5  # 0.5m/s^2
 		self.ego_max_vel = 40 # 40m/s or 90mph
 		self.delt = 1 # 1s time step 
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
@@ -129,7 +129,7 @@ class CruiseCtrlEnv(gym.Env):
 		if self.train:
 			return 0
 		else:
-			return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
+			return min(self.fv_max_vel, max(2.5*np.random.randn() + 20, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 
 	def InitializeEgoPos(self):
 		return 0
@@ -156,14 +156,29 @@ class CruiseCtrlEnv(gym.Env):
 		fv_acc = self.fv_input[self.episode_steps]
 		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		if self.train:
-			fv_acc = 0
+			fv_acc = 0.0
 		else:
 			fv_acc = fv_acc*self.fv_max_acc
+		
+		### Clipping acceleration to keep within velocity limits
+		if fv_vel >= self.fv_max_vel:
+			if fv_vel + fv_acc*self.delt >= self.fv_max_vel:
+				fv_acc = 0.0
+		else:
+			if fv_vel + fv_acc*self.delt >= self.fv_max_vel:
+				fv_acc = (self.fv_max_vel - fv_vel)/self.delt
+		
+		if fv_vel <= self.fv_min_vel:
+			if fv_vel + fv_acc*self.delt <= self.fv_min_vel:
+				fv_acc = 0.0
+		else:
+			if fv_vel + fv_acc*self.delt <= self.fv_min_vel:
+				fv_acc = (self.fv_min_vel - fv_vel)/self.delt		
 
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		fv_pos = fv_pos + fv_dist_trav 
-		fv_vel = min(max(fv_vel + fv_acc*self.delt, 0), self.fv_max_vel)
+		fv_vel = fv_vel + fv_acc*self.delt
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
 		"""
@@ -173,10 +188,18 @@ class CruiseCtrlEnv(gym.Env):
 		action = np.clip(action, self.action_low, self.action_high)[0]
 		ego_acc = action*self.max_acc
 
+		### Clipping acceleration to keep within velocity limits
+		if ego_vel >= self.ego_max_vel:
+			if ego_vel + ego_acc*self.delt >= self.ego_max_vel:
+				ego_acc = 0.0
+		else:
+			if ego_vel + ego_acc*self.delt >= self.ego_max_vel:
+				ego_acc = (self.ego_max_vel - ego_vel)/self.delt
+
 		### State update
 		ego_dist_trav = ego_vel*self.delt + 0.5*ego_acc*self.delt**2
 		ego_pos = ego_pos + ego_dist_trav 
-		ego_vel = min(ego_vel + ego_acc*self.delt, self.ego_max_vel)
+		ego_vel = ego_vel + ego_acc*self.delt
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
 		"""
