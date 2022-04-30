@@ -1,3 +1,4 @@
+from logging import warning
 import numpy as np
 from distutils.log import info
 import gym 
@@ -30,7 +31,7 @@ G = np.array([[0.5*Ts*Ts],
 T = 10
 Q = np.diag([20, 20])
 R = np.array([1])
-modelMPC = MPCLinear(A, B, G, Q, R, T)
+modelMPC = MPCLinear(A, B, G, Q, R, T, Ts)
 # x0 = [10, 2]
 xref = [5.5, 0]
 

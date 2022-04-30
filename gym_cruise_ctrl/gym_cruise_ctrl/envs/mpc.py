@@ -4,6 +4,9 @@ import cvxpy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 
+import warnings
+warnings.filterwarnings('ignore')
+
 plt.close('all')
 
 class MPCLinear():
@@ -77,7 +80,7 @@ class MPCLinear():
         prob = cp.Problem(cp.Minimize(cost), constraints)
         assert prob.is_dpp()
 
-        result = prob.solve(verbose=True)
+        result = prob.solve(verbose=False)
 
         if result == np.inf or result == -np.inf:
             U = self.U[:,1:]
@@ -89,6 +92,15 @@ class MPCLinear():
             self.X = X
 
         return U.value, X.value, md
+
+    def action_single(self, x0, xref, ego_vel):
+        u, _, _ = self.action(x0, xref, ego_vel)
+        try:
+            action = np.array([u[0,0]])
+        except:
+            action = np.array([0]) 
+        return action
+    
 
 # Ts = 1
 

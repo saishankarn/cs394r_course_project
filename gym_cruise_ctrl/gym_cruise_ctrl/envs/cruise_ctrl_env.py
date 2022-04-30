@@ -8,7 +8,8 @@ import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
-from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile
+from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile 
+from gym_cruise_ctrl.envs.mpc import MPCLinear
 
 class NoisyDepth():
 
@@ -71,10 +72,13 @@ class CruiseCtrlEnv(gym.Env):
 		
 		"""
 		### Observation Space
-			The observation is an ndarray of shape (2,) with each element in the range
+			The observation is an ndarray of shape (3,) with each element in the range
 			`[-inf, inf]`.   
+			1. Relative distance
+			2. Relative velocity
+			3. MPC control action
 		"""
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,))
 
 		"""
 		### Episodic Task
@@ -104,6 +108,21 @@ class CruiseCtrlEnv(gym.Env):
 		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
 
 		"""
+		### Initialize MPC
+		"""
+		A = np.array([[1, self.delt],
+					[0,  1]])
+		B = 1.5*np.array([[-0.5*self.delt*self.delt],
+					[-self.delt]])
+		G = np.array([[0.5*self.delt*self.delt],
+					[self.delt]])
+		T = 10
+		Q = np.diag([20, 20])
+		R = np.array([1])
+		self.modelMPC = MPCLinear(A, B, G, Q, R, T, self.delt)
+		self.mpc_xref = [5.5, 0]
+
+		"""
 		### Initial conditions
 		"""
 		### Front vehicle
@@ -116,12 +135,14 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
 
-		self.state = self.fv_state - self.ego_state # The state is the relative position and speed 
+		rel_pose = self.fv_state - self.ego_state # The state is the relative position and speed
+		mpc_action  = self.modelMPC.action_single(rel_pose, self.mpc_xref, self.ego_state[1])
+		self.state = np.append(rel_pose, mpc_action)
 
 
 	def InitializeFvPos(self):
 		if self.train:
-			return 100
+			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 		else:
 			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
@@ -136,11 +157,9 @@ class CruiseCtrlEnv(gym.Env):
 
 	def InitializeEgoVel(self):
 		if self.train:
-			return 0
+			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 		else:
 			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
-
-
 
 
 	def step(self, action):
@@ -205,7 +224,9 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		# MDP state update
 		"""
-		self.state = self.fv_state - self.ego_state
+		rel_pose = self.fv_state - self.ego_state # The state is the relative position and speed
+		mpc_action  = self.modelMPC.action_single(rel_pose, self.mpc_xref, self.ego_state[1])
+		self.state = np.append(rel_pose, mpc_action)
 
 		"""
 		# Observation update
@@ -276,8 +297,10 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
 
 		### MDP state
-		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
-
+		rel_pose = self.fv_state - self.ego_state # The state is the relative position and speed
+		mpc_action  = self.modelMPC.action_single(rel_pose, self.mpc_xref, self.ego_state[1])
+		self.state = np.append(rel_pose, mpc_action)
+		
 		### Observation 
 		obs = self.state.copy()
 		if self.noise_required:

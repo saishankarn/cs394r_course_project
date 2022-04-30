@@ -31,4 +31,4 @@ def plot_results(log_folder, title='Learning Curve'):
     plt.title(title + " Smoothed")
     plt.savefig('ploting_results.png')
 
-plot_results('/tmp/gym/sac')
+plot_results('saved_models/')
