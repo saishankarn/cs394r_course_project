@@ -74,7 +74,7 @@ class CruiseCtrlEnv(gym.Env):
 			The observation is an ndarray of shape (2,) with each element in the range
 			`[-inf, inf]`.   
 		"""
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,))
 
 		"""
 		### Episodic Task
@@ -99,6 +99,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
+		self.jerk_scaling_coef = 0.1 # factor by which to scale the jerk
 
 		### for seed purposes 
 		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
@@ -128,13 +129,15 @@ class CruiseCtrlEnv(gym.Env):
 
 	def InitializeFvPos(self):
 		if self.train:
-			return 100 
+			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+			#return 100 
 		else:
 			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
 	def InitializeFvVel(self):
 		if self.train:
 			return 0
+			#return min(self.fv_max_vel, max(5*np.random.randn() + 0, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 		else:
 			return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 
@@ -143,14 +146,13 @@ class CruiseCtrlEnv(gym.Env):
 
 	def InitializeEgoVel(self):
 		if self.train:
-			return 0
+			return max (5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 		else:
 			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 
 
 
-
-	def step(self, action):
+	def step(self, action): 
 		fv_pos  = self.fv_state[0]
 		fv_vel  = self.fv_state[1]
 		ego_pos = self.ego_state[0]
@@ -165,7 +167,7 @@ class CruiseCtrlEnv(gym.Env):
 		if self.train:
 			fv_acc = 0
 		else:
-			fv_acc = fv_acc*self.fv_max_acc
+			fv_acc = fv_acc*self.fv_max_acc 
 
 		### State update
 		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
@@ -194,11 +196,16 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		# Observation update
 		"""
-		obs = self.state.copy()
+		#obs = self.state.copy()
+		obs = np.zeros((3,))
+		obs[2] = self.prev_acc 
+		obs[1] = self.state[1]
+		obs[0] = self.state[0]
+
 		if self.noise_required:
 			obs[1] = self.vel_noise_model(obs[1], obs[0])
 			obs[0] = self.depth_noise_model(obs[0])
-		
+
 		"""
 		# Reward function
 		"""
@@ -206,13 +213,19 @@ class CruiseCtrlEnv(gym.Env):
 		reward = ego_dist_trav/self.ego_max_dist
 		
 		### Reward for being too close to the front vehicle
-		rel_dis = fv_pos - ego_pos
+		rel_dis = fv_pos - ego_pos 
 		if rel_dis < self.safety_dist:
-			print('closer than safety distance')
-			reward = self.violating_safety_dist_reward
+			reward += self.violating_safety_dist_reward  
+
+		### Reward for smooth acceleration 
+		jerk = abs(ego_acc - self.prev_acc) 
+		reward -= jerk * self.jerk_scaling_coef
+		self.prev_acc = ego_acc 
 
 		### Terminating the episode
 		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
+			if rel_dis < 2:
+				print("collided")
 			print("distance remaining : ", rel_dis)
 			self.done = True 
 
@@ -226,15 +239,15 @@ class CruiseCtrlEnv(gym.Env):
 			"ego_vel" : ego_vel,
 			"ego_acc" : ego_acc
 		}
-
+		#print(obs, self.state)
 		return obs, reward, self.done, info
 
 	def reset(self, seed=0):
 		"""
 		### setting the fixed seed for validation purposes
 		"""
-		if not self.train:
-			np.random.seed(seed)
+		#if not self.train:
+		#	np.random.seed(seed)
 		
 		"""
 		### Reset the enviornment
@@ -263,10 +276,21 @@ class CruiseCtrlEnv(gym.Env):
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 
 		### Observation 
-		obs = self.state.copy()
+		#obs = self.state.copy()
+		obs = np.zeros((3,))
+		obs[2] = 0
+		obs[1] = self.state[1]
+		obs[0] = self.state[0]
 		if self.noise_required:
+			#print(self.noise_required)
 			obs[1] = self.vel_noise_model(obs[1], obs[0])
 			obs[0] = self.depth_noise_model(obs[0])
+
+		#print("obs ------")
+		#print(obs)
+
+		### Previous acceleration
+		self.prev_acc = 0
 
 		return obs 
 

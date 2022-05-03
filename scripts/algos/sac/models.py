@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
- 
+
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20 
 
@@ -56,8 +56,7 @@ class ActorNetwork(nn.Module):
         logprob_action = action_distribution.log_prob(sample_action).sum(axis=-1)
         # print(logprob_action.shape)
         logprob_action -= (2*(np.log(2) - sample_action - F.softplus(-2*sample_action))).sum(axis=1)
-        print("within policy")
-        print(logprob_action.requires_grad)
+
         action = torch.tanh(sample_action) * self.max_action
 
         # Returned actions need to be in batch_size x action_dim shape 

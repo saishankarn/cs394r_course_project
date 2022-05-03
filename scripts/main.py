@@ -54,13 +54,13 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
         return True
 
 
-def run(log_dir):
+def run(log_dir, train, noise_required):
 
     """
     ### Initializing the environment, logger, callback and the trainer functions
     """
-
-    env = gym.make('cruise-ctrl-v0', train=True, noise_required=True) 
+    print("noise required : ", noise_required)
+    env = gym.make('cruise-ctrl-v0', train=train, noise_required=noise_required) 
     env = Monitor(env, log_dir) # Logs will be saved in log_dir/monitor.csv 
 
     # Create the callback: check every 1000 steps
@@ -68,7 +68,9 @@ def run(log_dir):
 
     model = SAC("MlpPolicy", env, verbose=1)
 
-    model.learn(total_timesteps = 10**6, callback = callback)
+    if train:
+        model.learn(total_timesteps = 10**6, callback = callback)
+
 
     """
     ### Validate results
@@ -114,39 +116,50 @@ def run(log_dir):
     ### Generate Plots
     """
 
-    fig, axes = plt.subplots(5,1)
+    fig, axes = plt.subplots(2,3, figsize=(15,7))
+    plt.rcParams.update({'font.size': 10})
 
-    axes[0].plot(total_reward_list)
-    axes[1].plot(rel_dist_list)
-    axes[2].plot(fv_pos_list, color = 'b', label = 'Front vehicle')
-    axes[2].plot(ego_pos_list, color = 'r',  label = 'Ego vehicle')
-    axes[3].plot(fv_vel_list, color = 'b', label = 'Front vehicle')
-    axes[3].plot(ego_vel_list, color = 'r',  label = 'Ego vehicle')
-    axes[4].plot(fv_acc_list, color = 'b', label = 'Front vehicle')
-    axes[4].plot(ego_acc_list, color = 'r',  label = 'Ego vehicle')
+    axes[0, 0].plot(total_reward_list)
+    axes[0, 1].plot(rel_dist_list)
+    axes[1, 0].plot(fv_pos_list, color = 'b', label = 'Front vehicle')
+    axes[1, 0].plot(ego_pos_list, color = 'r',  label = 'Ego vehicle')
+    axes[1, 1].plot(fv_vel_list, color = 'b', label = 'Front vehicle')
+    axes[1, 1].plot(ego_vel_list, color = 'r',  label = 'Ego vehicle')
+    axes[1, 2].plot(fv_acc_list, color = 'b', label = 'Front vehicle')
+    axes[1, 2].plot(ego_acc_list, color = 'r',  label = 'Ego vehicle')
 
-    axes[0].title.set_text('Total reward accumulated over time')
-    axes[1].title.set_text('Distance between vehicles over time')
-    axes[2].title.set_text('Position of front and ego vehicles')
-    axes[3].title.set_text('Velocity of front and ego vehicles')
-    axes[4].title.set_text('Acceleration of front and ego vehicles')
+    axes[0, 0].title.set_text('Total reward accumulated over time')
+    axes[0, 1].title.set_text('Distance between vehicles over time')
+    axes[1, 0].title.set_text('Position of front and ego vehicles')
+    axes[1, 1].title.set_text('Velocity of front and ego vehicles')
+    axes[1, 2].title.set_text('Acceleration of front and ego vehicles')
 
-    axes[2].set_xlabel('Time steps')
-    axes[3].set_xlabel('Time steps')
-    axes[4].set_xlabel('Time steps')
+    axes[1, 0].set_xlabel('Time steps')
+    axes[1, 1].set_xlabel('Time steps')
+    axes[1, 2].set_xlabel('Time steps')
 
-    axes[0].set_ylabel('Total reward')
-    axes[1].set_ylabel('Dist (m)')
-    axes[2].set_ylabel('Pos (m)')
-    axes[3].set_ylabel('Vel (m/s)')
-    axes[4].set_ylabel('Acc')
+    axes[0, 0].set_ylabel('Total reward')
+    axes[0, 1].set_ylabel('Dist (m)')
+    axes[1, 0].set_ylabel('Pos (m)')
+    axes[1, 1].set_ylabel('Vel (m/s)')
+    axes[1, 2].set_ylabel('Acc')
 
-    plt.legend
+    axes[1, 0].legend()
+    axes[1, 1].legend()
+    axes[1, 2].legend()
+
+    fig.tight_layout()
     plt.savefig('img.png')
+    plt.show()
 
     return 0
 
 if __name__ == "__main__":
-    log_dir = sys.argv[1]
+    log_dir = sys.argv[1] # path (str) to log the results of the experiment 
+    train = sys.argv[2] # bool (True or False) whether to train or not 
+    noise_required = sys.argv[3] # bool (True or False) whether noise from depth and velocity is required or not
     os.makedirs(log_dir, exist_ok=True)
-    run(log_dir)
+
+    train = True 
+    noise_required = False
+    run(log_dir, train, noise_required)
