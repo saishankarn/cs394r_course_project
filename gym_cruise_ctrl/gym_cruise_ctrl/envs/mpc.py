@@ -80,7 +80,7 @@ class MPCLinear():
         prob = cp.Problem(cp.Minimize(cost), constraints)
         assert prob.is_dpp()
 
-        result = prob.solve(verbose=False)
+        result = prob.solve(verbose=False, warm_start=True)
 
         if result == np.inf or result == -np.inf:
             U = self.U[:,1:]

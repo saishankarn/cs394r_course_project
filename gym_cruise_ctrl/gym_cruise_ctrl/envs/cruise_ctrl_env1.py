@@ -10,9 +10,10 @@ from os import path
 import pygame
 from pygame import gfxdraw
 from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile 
+from gym_cruise_ctrl.envs.mpc import MPCLinear
 from gym_cruise_ctrl.envs.noise_model import NoisyDepth, NoisyVel
 
-class CruiseCtrlEnv(gym.Env):
+class CruiseCtrlEnv1(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -29,11 +30,11 @@ class CruiseCtrlEnv(gym.Env):
 		
 		"""
 		### Observation Space
-			The observation is an ndarray of shape (2,) with each element in the range
+			The observation is an ndarray of shape (3,) with each element in the range
 			`[-inf, inf]`.   
 			1. Relative distance
 			2. Relative velocity
-			3. Previous action
+			3. MPC action
 		"""
 		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,))
 
@@ -61,30 +62,41 @@ class CruiseCtrlEnv(gym.Env):
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
-		self.jerk_cost = 10
-		self.nominal_max_gap_keeping_error = 15
 
 		### for seed purposes 
 		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
+
+		"""
+		### Initialize MPC
+		"""
+		A = np.array([[1, self.delt],
+					[0,  1]])
+		B = self.max_acc*np.array([[-0.5*self.delt*self.delt],
+					[-self.delt]])
+		G = np.array([[0.5*self.delt*self.delt],
+					[self.delt]])
+		T = 10 #Horizon Length
+		Q = np.diag([20, 20])
+		R = np.array([1])
+		self.modelMPC = MPCLinear(A, B, G, Q, R, T, self.delt)
+		self.mpc_xref = [5.5, 0]
 
 		"""
 		### Initial conditions
 		"""
 		### Front vehicle
 		self.fv_init_pos = self.InitializeFvPos()
-		self.fv_init_vel = self.InitializeFvVel()
+		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
 
 		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
-		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
+		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
 
-		self.ego_init_acc = 0.0
-		self.ego_jerk	  = 0.0
-		
 		rel_pose = self.fv_state - self.ego_state # The state is the relative position and speed
-		self.state = np.append(rel_pose, self.ego_init_acc)
+		mpc_action  = self.modelMPC.action_single(rel_pose, self.mpc_xref, self.ego_state[1]) # First action is not corrupted by noise
+		self.state = np.append(rel_pose.copy(), mpc_action)
 
 		"""
 		### Visualizer Parameters
@@ -174,22 +186,26 @@ class CruiseCtrlEnv(gym.Env):
 		ego_vel = ego_vel + ego_acc*self.delt
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
-		self.ego_jerk = (ego_acc - self.state[2])/self.delt
-
 		"""
 		# Noise corruption
 		"""
 		rel_pose = self.fv_state - self.ego_state
-		self.state = np.append(rel_pose.copy(), ego_acc)
+		self.state = rel_pose.copy()
 
 		if self.noise_required:
 			rel_pose[1] = self.vel_noise_model(rel_pose[1], rel_pose[0])
 			rel_pose[0] = self.depth_noise_model(rel_pose[0])
 
 		"""
+		# MDP state update
+		"""
+		mpc_action  = self.modelMPC.action_single(rel_pose, self.mpc_xref, self.ego_state[1])
+		self.state = np.append(self.state, mpc_action)
+
+		"""
 		# Observation update
 		"""
-		obs = np.append(rel_pose.copy(), ego_acc)
+		obs = np.append(rel_pose.copy(), mpc_action)
 		
 		"""
 		# Reward function
@@ -197,18 +213,11 @@ class CruiseCtrlEnv(gym.Env):
 		### Reward for moving forward
 		reward = ego_dist_trav/self.ego_max_dist
 		
-		### ACC cost function
-		# cost_gap_keeping_error = abs((rel_pose[0] - self.safety_dist)/self.nominal_max_gap_keeping_error)
-		cost_control_effort    = abs(action/max(abs(self.action_low), abs(self.action_high)))
-		cost_jerk			   = abs(self.ego_jerk/(self.max_acc*(self.action_high - self.action_low)/self.delt))
-		cost_jerk              = abs(self.ego_jerk)
-
-		reward = reward - 0*cost_control_effort - 0.1*cost_jerk
-
 		### Reward for being too close to the front vehicle
 		rel_dis = fv_pos - ego_pos
 		if rel_dis < self.safety_dist:
-			reward += self.violating_safety_dist_reward
+			print('closer than safety distance')
+			reward = self.violating_safety_dist_reward
 
 		### Terminating the episode
 		if rel_dis <= 0 or self.episode_steps >= self.max_episode_steps:
@@ -256,14 +265,13 @@ class CruiseCtrlEnv(gym.Env):
 		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
-		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32)
+		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
 
-		self.ego_init_acc = 0.0
-		self.ego_jerk     = 0.0
-		
+		### MDP state
 		rel_pose = self.fv_state - self.ego_state # The state is the relative position and speed
-		self.state = np.append(rel_pose, self.ego_init_acc)
-
+		mpc_action  = self.modelMPC.action_single(rel_pose, self.mpc_xref, self.ego_state[1])
+		self.state = np.append(rel_pose.copy(), mpc_action)
+		
 		### Observation 
 		obs = self.state.copy()
 
