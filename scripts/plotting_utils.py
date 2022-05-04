@@ -55,7 +55,7 @@ class PlotTestResults():
     def store(self, obs, reward, info):
         self.reward_to_go_list.append(self.reward_to_go_list[-1] + reward)
         self.rel_dis_list.append(obs[0])
-        self.rel_vel_list.append(obs[0])
+        self.rel_vel_list.append(obs[1])
 
         self.fv_pos_list.append(info["fv_pos"])
         self.fv_vel_list.append(info["fv_vel"])
@@ -106,15 +106,16 @@ class PlotTestResults():
         axes[1,1].set_ylabel('Velocity (m/s)')
         axes[1,2].set_ylabel('Acceleration (m/s)')
 
-        axes[0,0].set_xlim([0, 100])
-        axes[0,1].set_xlim([0, 100])
-        axes[0,2].set_xlim([0, 100])
-        axes[1,0].set_xlim([0, 100])
-        axes[1,1].set_xlim([0, 100])
-        axes[1,2].set_xlim([0, 100])
+        axes[0,0].set_xlim([0, 1000])
+        axes[0,1].set_xlim([0, 1000])
+        axes[0,2].set_xlim([0, 1000])
+        axes[1,0].set_xlim([0, 1000])
+        axes[1,1].set_xlim([0, 1000])
+        axes[1,2].set_xlim([0, 1000])
 
         plot_dir = 'plots/test_plots'
         os.makedirs(plot_dir, exist_ok=True)
-        plt.savefig(plot_dir+'/fig_'+datetime.datetime.now().strftime('%Y.%m.%d.%H.%M.%S')+'.png')
+        plt.savefig(plot_dir+'/fig'+'.png')
+        # plt.savefig(plot_dir+'/fig_'+datetime.datetime.now().strftime('%Y.%m.%d.%H.%M.%S')+'.png')
         fig.tight_layout()
         plt.show()

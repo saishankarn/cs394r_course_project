@@ -1,7 +1,6 @@
 """
 Jai Shri Ram 
 """
-import imp
 import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
@@ -9,10 +8,10 @@ import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
-from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile 
+from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile, Spline
 from gym_cruise_ctrl.envs.noise_model import NoisyDepth, NoisyVel
 
-class CruiseCtrlEnv(gym.Env):
+class CruiseCtrlEnv2(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -41,7 +40,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### Episodic Task
 		"""
-		self.max_episode_steps = 100
+		self.delt = 0.1 # 0.1s time step
+		self.max_episode_steps = int(100/self.delt)
 		self.episode_steps = 0
 		self.done = False
 
@@ -49,15 +49,18 @@ class CruiseCtrlEnv(gym.Env):
 		### Environment Specifications   
 		"""
 		self.safety_dist = 5	# Required distance between the ego and front vehicle
-		self.violating_safety_dist_reward = -10	# Reward for getting too close to the front car
+		self.violating_safety_dist_reward = -10*self.delt	# Reward for getting too close to the front car
 		self.fv_min_vel = 10 # 10m/s or 30mph
 		self.fv_max_vel = 30 # 30m/s or 70mph
 		self.fv_max_acc = 0.5  # 0.5m/s^2
-		self.ego_max_vel = 40 # 40m/s or 90mph
-		self.delt = 1 # 1s time step 
+		self.ego_max_vel = 40 # 40m/s or 90mph 
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
-		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5) # class to generate the behaviour of the front vehicle
-		self.fv_input = self.fv_input_gen.generate() # the behaviour of the front vehicle
+		# self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5) # class to generate the behaviour of the front vehicle
+		# self.fv_input = self.fv_input_gen.generate() # the behaviour of the front vehicle
+		self.fv_vel_list, self.fv_acc_list = Spline(self.max_episode_steps, 4, 8)
+		self.fv_vel_list = self.fv_min_vel + self.fv_vel_list*(self.fv_max_vel - self.fv_min_vel)
+		self.fv_acc_list = self.fv_acc_list*(self.fv_max_vel - self.fv_min_vel)/self.delt
+		
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
@@ -72,7 +75,7 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### Front vehicle
 		self.fv_init_pos = self.InitializeFvPos()
-		self.fv_init_vel = self.InitializeFvVel()
+		self.fv_init_vel = self.fv_vel_list[0]
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
 
 		### Ego vehicle
@@ -125,40 +128,40 @@ class CruiseCtrlEnv(gym.Env):
 		### Front vehicle state transition
 		"""
 		### Acceleration input to the front vehicle
-		fv_acc = self.fv_input[self.episode_steps]
-		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
-		if self.train:
-			fv_acc = 0.0
-		else:
-			fv_acc = fv_acc*self.fv_max_acc
+		# fv_acc = self.fv_input[self.episode_steps]
+		# fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
+		# if self.train:
+		# 	fv_acc = 0.0
+		# else:
+		# 	fv_acc = fv_acc*self.fv_max_acc*0
 		
-		### Clipping acceleration to keep within velocity limits
-		if fv_vel >= self.fv_max_vel:
-			if fv_vel + fv_acc*self.delt >= self.fv_max_vel:
-				fv_acc = 0.0
-		else:
-			if fv_vel + fv_acc*self.delt >= self.fv_max_vel:
-				fv_acc = (self.fv_max_vel - fv_vel)/self.delt
+		# ### Clipping acceleration to keep within velocity limits
+		# if fv_vel >= self.fv_max_vel:
+		# 	if fv_vel + fv_acc*self.delt >= self.fv_max_vel:
+		# 		fv_acc = 0.0
+		# else:
+		# 	if fv_vel + fv_acc*self.delt >= self.fv_max_vel:
+		# 		fv_acc = (self.fv_max_vel - fv_vel)/self.delt
 		
-		if fv_vel <= self.fv_min_vel:
-			if fv_vel + fv_acc*self.delt <= self.fv_min_vel:
-				fv_acc = 0.0
-		else:
-			if fv_vel + fv_acc*self.delt <= self.fv_min_vel:
-				fv_acc = (self.fv_min_vel - fv_vel)/self.delt		
+		# if fv_vel <= self.fv_min_vel:
+		# 	if fv_vel + fv_acc*self.delt <= self.fv_min_vel:
+		# 		fv_acc = 0.0
+		# else:
+		# 	if fv_vel + fv_acc*self.delt <= self.fv_min_vel:
+		# 		fv_acc = (self.fv_min_vel - fv_vel)/self.delt		
 
 		### State update
-		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
-		fv_pos = fv_pos + fv_dist_trav 
-		fv_vel = fv_vel + fv_acc*self.delt
+		fv_acc = self.fv_acc_list[self.episode_steps]
+		fv_vel = self.fv_vel_list[self.episode_steps]
+		fv_pos = fv_pos + fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
 		"""
 		### Ego vehicle state transition
 		"""
 		### Acceleration input to the ego vehicle
-		action = np.clip(action, self.action_low, self.action_high)[0]
-		ego_acc = action*self.max_acc
+		action = np.clip(action, -self.max_acc, self.max_acc)[0]
+		ego_acc = action.item() #*self.max_acc
 
 		### Clipping acceleration to keep within velocity limits
 		if ego_vel >= self.ego_max_vel:
@@ -203,7 +206,7 @@ class CruiseCtrlEnv(gym.Env):
 		cost_jerk			   = abs(self.ego_jerk/(self.max_acc*(self.action_high - self.action_low)/self.delt))
 		cost_jerk              = abs(self.ego_jerk)
 
-		reward = 0*reward - 0*cost_control_effort - 0.5*cost_jerk
+		reward = reward - 0*cost_control_effort - 0.0*cost_jerk
 
 		### Reward for being too close to the front vehicle
 		rel_dis = fv_pos - ego_pos
@@ -211,7 +214,7 @@ class CruiseCtrlEnv(gym.Env):
 			reward += self.violating_safety_dist_reward
 
 		### Terminating the episode
-		if rel_dis <= 0 or self.episode_steps >= self.max_episode_steps:
+		if rel_dis <= 2 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
 			self.done = True 
 
@@ -248,10 +251,14 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 
 		### Front vehicle
+		self.fv_vel_list, self.fv_acc_list = Spline(self.max_episode_steps, 4, 8)
+		self.fv_vel_list = self.fv_min_vel + self.fv_vel_list*(self.fv_max_vel - self.fv_min_vel)
+		self.fv_acc_list = self.fv_acc_list*(self.fv_max_vel - self.fv_min_vel)/self.delt
+
 		self.fv_init_pos = self.InitializeFvPos()
-		self.fv_init_vel = self.InitializeFvVel() 
+		self.fv_init_vel = self.fv_vel_list[0] 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
-		self.fv_input = self.fv_input_gen.generate()
+		# self.fv_input = self.fv_input_gen.generate()
 
 		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()

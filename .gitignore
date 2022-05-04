@@ -1,2 +1,6 @@
 __pycache__/
 depth_analysis
+img.png
+tmp/
+plots/
+logs/
