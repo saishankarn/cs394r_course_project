@@ -3,9 +3,9 @@ import numpy as np
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as F 
 from torch.distributions.normal import Normal
- 
+
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20 
 
@@ -38,7 +38,7 @@ class ActorNetwork(nn.Module):
         out = self.fc2(out)
         out = F.relu(out)
 
-        mu = self.fc_mu_layer(out)
+        mu = self.fc_mu_layer(out) 
         log_std = self.fc_log_std_layer(out)
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
@@ -54,10 +54,7 @@ class ActorNetwork(nn.Module):
         #print(action_distribution, "----")
 
         logprob_action = action_distribution.log_prob(sample_action).sum(axis=-1)
-        # print(logprob_action.shape)
         logprob_action -= (2*(np.log(2) - sample_action - F.softplus(-2*sample_action))).sum(axis=1)
-        #print("within policy")
-        #print(logprob_action.requires_grad)
         action = torch.tanh(sample_action) * self.max_action
 
         # Returned actions need to be in batch_size x action_dim shape 
@@ -82,7 +79,6 @@ class CriticNetwork(nn.Module):
     def forward(self, state, action):
         # state should be a batch_size x state_dim tensor 
         # action should be a batch_size x action_dim tensor
-
         state_action_value = self.fc1(torch.cat([state, action], dim=1))
         state_action_value = F.relu(state_action_value)
         state_action_value = self.fc2(state_action_value)
@@ -105,10 +101,9 @@ class ActorCriticNetwork(nn.Module):
 
         # build policy and value functions
         self.policy = ActorNetwork(self.state_space, self.action_space, self.max_action, device)
-        self.critic1 = CriticNetwork(self.state_space, self.action_space)
-        self.critic2 = CriticNetwork(self.state_space, self.action_space)
+        self.critic = CriticNetwork(self.state_space, self.action_space)
 
     def act(self, state, deterministic=False):
         with torch.no_grad():
-            action, _ = self.policy(state, deterministic=deterministic)
-            return action.numpy()
+            action, logprob_action = self.policy(state, deterministic=deterministic)
+            return action.numpy(), logprob_action

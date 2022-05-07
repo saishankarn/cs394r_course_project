@@ -73,7 +73,7 @@ def train(args):
     replay_buffer = ReplayBuffer(state_space=env.observation_space, action_space=env.action_space, buffer_size=buffer_size)
 
     """
-    ### Functions for policy and critic loss 
+    ### Functions for policy and critic loss
     """
 
     # Calculating the action value loss

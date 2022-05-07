@@ -12,8 +12,7 @@ import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
-from gym_cruise_ctrl.envs.idm import IDM 
-from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile, Spline
+from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile
 
 class NoisyDepth():
 
@@ -79,7 +78,7 @@ class CruiseCtrlEnv(gym.Env):
 			The observation is an ndarray of shape (2,) with each element in the range
 			`[-inf, inf]`.   
 		"""
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
 
 		"""
 		### Episodic Task
@@ -99,12 +98,8 @@ class CruiseCtrlEnv(gym.Env):
 		self.ego_max_vel = 40 # 40m/s or 90mph
 		self.delt = 1 # 1s time step 
 		self.ego_max_dist = self.ego_max_vel*self.delt # Max distance travelled in one time step
-		
-		self.fv_vel_list, self.fv_acc_list = Spline(self.max_episode_steps, 4, 8)
-		self.fv_vel_list = self.fv_min_vel + self.fv_vel_list*(self.fv_max_vel - self.fv_min_vel)
-		self.fv_acc_list = self.fv_acc_list*(self.fv_max_vel - self.fv_min_vel)/self.delt 
-
-		self.classic_control = IDM() # classic control model 
+		self.fv_input_gen = PiecewiseLinearProfile(self.max_episode_steps, 1, 5) # class to generate the behaviour of the front vehicle
+		self.fv_input = self.fv_input_gen.generate() # the behaviour of the front vehicle
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
@@ -135,7 +130,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.screen = None
 
 
- 
+
 	def InitializeFvPos(self):
 		if self.train:
 			#return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
@@ -168,31 +163,29 @@ class CruiseCtrlEnv(gym.Env):
 		ego_pos = self.ego_state[0]
 		ego_vel = self.ego_state[1] 
 
-
-
-
 		"""
 		### Front vehicle state transition
 		"""
 		### Acceleration input to the front vehicle
-		### State update
-		fv_acc = self.fv_acc_list[self.episode_steps]
-		fv_vel = self.fv_vel_list[self.episode_steps]
+		fv_acc = self.fv_input[self.episode_steps]
+		fv_acc = np.clip(fv_acc, self.action_low, self.action_high)
 		if self.train:
-			fv_acc = 0 
-			fv_vel = 0
-		fv_pos = fv_pos + fv_vel*self.delt + 0.5*fv_acc*self.delt**2
+			fv_acc = 0
+		else:
+			fv_acc = fv_acc*self.fv_max_acc 
+
+		### State update
+		fv_dist_trav = fv_vel*self.delt + 0.5*fv_acc*self.delt**2
+		fv_pos = fv_pos + fv_dist_trav 
+		fv_vel = min(max(fv_vel + fv_acc*self.delt, 0), self.fv_max_vel)
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
-
-
-
 		"""
 		### Ego vehicle state transition
 		"""
 		### Acceleration input to the ego vehicle
 		action = np.clip(action, self.action_low, self.action_high)[0]
-		ego_acc = action*self.max_acc 
+		ego_acc = action*self.max_acc
 
 		### State update
 		ego_dist_trav = ego_vel*self.delt + 0.5*ego_acc*self.delt**2
@@ -200,7 +193,23 @@ class CruiseCtrlEnv(gym.Env):
 		ego_vel = min(ego_vel + ego_acc*self.delt, self.ego_max_vel)
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
-		
+		"""
+		# MDP state update
+		"""
+		self.state = self.fv_state - self.ego_state
+
+		"""
+		# Observation update
+		"""
+		obs = self.state.copy()
+		#obs = np.zeros((3,))
+		#obs[2] = self.prev_acc 
+		#obs[1] = self.state[1]
+		#obs[0] = self.state[0]
+
+		if self.noise_required:
+			obs[1] = self.vel_noise_model(obs[1], obs[0])
+			obs[0] = self.depth_noise_model(obs[0])
 
 		"""
 		# Reward function
@@ -214,8 +223,9 @@ class CruiseCtrlEnv(gym.Env):
 			reward += self.violating_safety_dist_reward  
 
 		### Reward for smooth acceleration 
-		jerk = abs(ego_acc - self.prev_acc) 
-		reward -= jerk * self.jerk_scaling_coef
+		#jerk = abs(ego_acc - self.prev_acc) 
+		#reward -= jerk * self.jerk_scaling_coef
+		#self.prev_acc = ego_acc 
 
 		### Terminating the episode
 		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
@@ -226,33 +236,6 @@ class CruiseCtrlEnv(gym.Env):
 
 		self.episode_steps += 1
 
-
-
-
-
-		"""
-		# MDP state update
-		"""
-		self.state = self.fv_state - self.ego_state
-
-		### Now the state has threee features
-		self.prev_acc = ego_acc 
-		self.state = np.append(self.state, self.prev_acc)
-
-
-
-
-		"""
-		# Observation update
-		"""
-		obs = self.state.copy()
-		if self.noise_required:
-			obs[1] = self.vel_noise_model(obs[1], obs[0])
-			obs[0] = self.depth_noise_model(obs[0])
-
-
-
-
 		info = {
 			"fv_pos"  : fv_pos,
 			"fv_vel"  : fv_vel,
@@ -261,9 +244,6 @@ class CruiseCtrlEnv(gym.Env):
 			"ego_vel" : ego_vel,
 			"ego_acc" : ego_acc
 		}
-
-
-
 		#print(obs, self.state)
 		return obs, reward, self.done, info
 
@@ -287,13 +267,10 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 
 		### Front vehicle
-		self.fv_vel_list, self.fv_acc_list = Spline(self.max_episode_steps, 4, 8)
-		self.fv_vel_list = self.fv_min_vel + self.fv_vel_list*(self.fv_max_vel - self.fv_min_vel)
-		self.fv_acc_list = self.fv_acc_list*(self.fv_max_vel - self.fv_min_vel)/self.delt
-
 		self.fv_init_pos = self.InitializeFvPos()
 		self.fv_init_vel = self.InitializeFvVel() 
 		self.fv_state    = np.array([self.fv_init_pos, self.fv_init_vel], dtype=np.float32)
+		self.fv_input = self.fv_input_gen.generate()
 
 		### Ego vehicle
 		self.ego_init_pos = self.InitializeEgoPos()
@@ -303,22 +280,22 @@ class CruiseCtrlEnv(gym.Env):
 		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 
-		### Previous acceleration
-		self.prev_acc = 0
-
-		### Now the state has threee features
-		self.state = np.append(self.state, self.prev_acc)
-
 		### Observation 
 		obs = self.state.copy()
+		#obs = np.zeros((3,))
+		#obs[2] = 0
+		#obs[1] = self.state[1]
+		#obs[0] = self.state[0]
 		if self.noise_required:
 			#print(self.noise_required)
 			obs[1] = self.vel_noise_model(obs[1], obs[0])
 			obs[0] = self.depth_noise_model(obs[0])
 
-		#print('obs')
-		#rint(obs)
-		
+		#print("obs ------")
+		#print(obs)
+
+		### Previous acceleration
+		#self.prev_acc = 0
 
 		return obs 
 

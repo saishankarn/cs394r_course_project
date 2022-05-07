@@ -25,7 +25,7 @@ def train(args):
     learning_rate = 3e-4 # learning rate
     polyak = 0.995
     gamma = 0.99
-    buffer_size = 1e6 
+    buffer_size = 1e6
     total_steps = 1e6
     update_after = 1e3 
     update_every = 50
@@ -50,12 +50,13 @@ def train(args):
     ActorCritic = ActorCriticNetwork(state_space, action_space, device)
     #ActorCritic.load_state_dict(torch.load(os.path.join(args.log_dir, 'own_sac_best_model.pt')))
     
-    Target = deepcopy(ActorCritic)  
+    #Target = deepcopy(ActorCritic)  
 
     """
     ### Defining the parameters for training
     """
-    critic_parameters = itertools.chain(ActorCritic.critic1.parameters(), ActorCritic.critic2.parameters())
+    #critic_parameters = itertools.chain(ActorCritic.critic1.parameters(), ActorCritic.critic2.parameters())
+    critic_parameters = ActorCritic.critic.parameters()
     critic_optimizer = Adam(critic_parameters, lr=learning_rate)
 
     policy_parameters = ActorCritic.policy.parameters()
@@ -64,8 +65,8 @@ def train(args):
     # The Target network's weights are not updated through backpropogation
     # The Target network's weights are only updated through polyak averaging
     # Hence setting the requires_grad of the target network parameters to false
-    for param in Target.parameters():
-        param.requires_grad = False 
+    #for param in Target.parameters():
+    #    param.requires_grad = False 
 
     """
     ### Initializing the replay buffer
@@ -73,7 +74,7 @@ def train(args):
     replay_buffer = ReplayBuffer(state_space=env.observation_space, action_space=env.action_space, buffer_size=buffer_size)
 
     """
-    ### Functions for policy and critic loss 
+    ### Functions for policy and critic loss
     """
 
     # Calculating the action value loss
@@ -82,8 +83,8 @@ def train(args):
         # print(state.shape, action.shape, reward.shape, next_state.shape, done.shape)
         
         # Calculating the current (s,a)'s Q value to compare against a bootstrapped target
-        q_value1 = ActorCritic.critic1(state, action) # Calculating Q(s,a) from the actor critic's critic1 network
-        q_value2 = ActorCritic.critic2(state, action) # Calculating Q(s,a) from the actor critic's critic2 network
+        q_value = ActorCritic.critic(state, action) # Calculating Q(s,a) from the actor critic's critic1 network
+        #q_value2 = ActorCritic.critic2(state, action) # Calculating Q(s,a) from the actor critic's critic2 network
         # print(q_value1.shape, q_value2.shape)
 
         # using torch.no_grad() every time when we don't want to compute the gradients and just update the values
@@ -91,16 +92,16 @@ def train(args):
             #print("here at tprch no grad")
             next_action, logprob_next_action = ActorCritic.policy(next_state) # finding out the next state's action (s',a')
             #print(logprob_next_action.shape, next_action.shape)
-            next_q_value1 = Target.critic1(next_state, next_action) # Calculating Q(s',a') from the target's critic1 network
-            next_q_value2 = Target.critic2(next_state, next_action) # Calculating Q(s',a') from the target's critic2 network
-            next_q_value = torch.min(next_q_value1, next_q_value2)  # Q(s',a')
+            next_q_value = ActorCritic.critic(next_state, next_action) # Calculating Q(s',a') from the target's critic1 network
+            #next_q_value2 = Target.critic2(next_state, next_action) # Calculating Q(s',a') from the target's critic2 network
+            #next_q_value = torch.min(next_q_value1, next_q_value2)  # Q(s',a')
             #print(next_q_value.shape, logprob_next_action.shape)
 
             # Q(s,a)'s bootstrapped estimate -> r + gamma * Q(s',a')
-            bootstrapped_target = reward + gamma * (1 - done) * (next_q_value - alpha * logprob_next_action)
+            bootstrapped_target = reward + gamma * (1 - done) * (next_q_value)# - alpha * logprob_next_action)
 
         # print(q_value1.shape, bootstrapped_target.shape)
-        critic_loss = torch.square(q_value1 - bootstrapped_target).mean() + torch.square(q_value2 - bootstrapped_target).mean()
+        critic_loss = torch.square(q_value - bootstrapped_target).mean() #+ torch.square(q_value2 - bootstrapped_target).mean()
 
         return critic_loss 
 
@@ -110,9 +111,9 @@ def train(args):
         #print("here at the policy loss function")
         action, logprob_action = ActorCritic.policy(state) # using the policy network to obtain the action for the corresponding state
         # getting the Q(s,a) for the state action pair using both the critic networks
-        q_value1 = ActorCritic.critic1(state, action)
-        q_value2 = ActorCritic.critic2(state, action)        
-        q_value = torch.min(q_value1, q_value2) # Q(s,a)
+        q_value = ActorCritic.critic(state, action)
+        #q_value2 = ActorCritic.critic2(state, action)        
+        #q_value = torch.min(q_value1, q_value2) # Q(s,a)
         #print(q_value.requires_grad)
         # policy loss
         # intuitive understanding - 
@@ -151,10 +152,10 @@ def train(args):
             parameter.requires_grad = True
 
         # Finally, update target networks by polyak averaging.
-        with torch.no_grad():
-            for param, target_param in zip(ActorCritic.parameters(), Target.parameters()):
-                target_param.data.mul_(polyak)
-                target_param.data.add_((1 - polyak) * param.data) 
+        #with torch.no_grad():
+        #    for param, target_param in zip(ActorCritic.parameters(), Target.parameters()):
+        #        target_param.data.mul_(polyak)
+        #        target_param.data.add_((1 - polyak) * param.data) 
 
         return critic_loss, policy_loss_val
 
@@ -239,7 +240,6 @@ def train(args):
 
         # Update handling 
         if t >= update_after and t % update_every == 0: 
-            print("time step - ", t)
             for j in range(update_every):
                 batch = replay_buffer.sample_batch(batch_size)
                 critic_loss, policy_loss_val = update(data=batch)  

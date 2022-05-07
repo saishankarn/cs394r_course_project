@@ -23,13 +23,9 @@ def train(args):
     """
     alpha = 0.02 # entropy coefficient
     learning_rate = 3e-4 # learning rate
-    polyak = 0.995
-    gamma = 0.99
     buffer_size = 1e6 
     total_steps = 1e6
-    update_after = 1e3 
-    update_every = 50
-    batch_size = 256     
+    gamma = 0.99
 
     num_test_episodes = 10
 
@@ -64,11 +60,11 @@ def train(args):
     """
 
     # Calculating the action value loss
-    def action_value_and_policy_loss(state, action, logprob_action, next_state, reward, done):
+    def action_value_and_policy_loss(state, action, next_state, reward, done):
         # print(state.shape, action.shape, reward.shape, next_state.shape, done.shape)
-        state_tensor = torch.Tensor(state).unsqueeze(0)
-        action_tensor = torch.Tensor(action).unsqueeze(0)
-        next_state_tensor = torch.Tensor(next_state).unsqueeze(0)
+        state_tensor = torch.as_tensor(state, dtype=torch.float32).unsqueeze(0)
+        action_tensor = torch.as_tensor(action, dtype=torch.float32).unsqueeze(0)
+        next_state_tensor = torch.as_tensor(next_state, dtype=torch.float32).unsqueeze(0)
 
         # Calculating the current (s,a)'s Q value to compare against a bootstrapped target
         q_value = ActorCritic.critic(state_tensor, action_tensor) # Calculating Q(s,a) from the actor critic's network
@@ -84,21 +80,23 @@ def train(args):
             bootstrapped_target = reward + gamma * (1 - done) * (next_q_value)
 
         # print(q_value.requires_grad, bootstrapped_target.requires_grad)
-
-        print(bootstrapped_target)
         # print(q_value1.shape, bootstrapped_target.shape)
         td_error = q_value - bootstrapped_target
-        critic_loss = torch.square(td_error).mean()
+        critic_loss = torch.square(td_error).mean() 
 
-        policy_loss = -1 * td_error 
+        action, logprob_action = ActorCritic.policy(state_tensor)
+        #print(logprob_action.shape, td_error.shape, logprob_action, td_error)
+        policy_loss = -1 * td_error.detach() * logprob_action 
+        policy_loss = policy_loss.mean()
+        # print(policy_loss, policy_loss.shape, critic_loss, critic_loss.shape) 
 
         return critic_loss, policy_loss 
  
 
     # updating actor-critic parameters
-    def update(state, action, logprob_action, next_state, reward, done):
+    def update(state, action, next_state, reward, done):
         
-        critic_loss, policy_loss_val = action_value_and_policy_loss(state, action, logprob_action, next_state, reward, done)
+        critic_loss, policy_loss_val = action_value_and_policy_loss(state, action, next_state, reward, done)
         
         # First run one gradient descent step for critic
         critic_optimizer.zero_grad()
@@ -129,24 +127,6 @@ def train(args):
         action, logprob_action = ActorCritic.act(torch.as_tensor(state, dtype=torch.float32), deterministic=deterministic) 
         return action.squeeze(0), logprob_action
 
-    def test_agent(test_env): 
-        random_seeds = np.random.choice(10000, size=(num_test_episodes,))
-        
-        test_episodes_returns = []
-        for test_ep_idx in range(num_test_episodes):
-            state = test_env.reset(seed=random_seeds[test_ep_idx])
-            done = False 
-            episode_return = 0
-
-            while not done: 
-                state_tensor = torch.tensor(state).unsqueeze(0)
-                state, reward, done, _ = test_env.step(get_action(state_tensor, deterministic=True).squeeze(0))
-                episode_return += reward
-
-            test_episodes_returns.append(episode_return)
-
-        return test_episodes_returns 
-
     def write_loss_summary(writer, critic_loss, policy_loss_val, rewards, num_updates):
         # writing the critic loss
         writer.add_scalar('Loss/critic', critic_loss.item(), num_updates)
@@ -172,12 +152,9 @@ def train(args):
     num_updates = 0
 
     for t in range(int(total_steps)):
-
         state_tensor = torch.tensor(state).unsqueeze(0)
-        #print(state.shape)
         action, logprob_action = get_action(state_tensor)
-        print("log probability")
-        print(logprob_action, logprob_action.requires_grad)
+
         # Step the env
         next_state, reward, done, _ = env.step(action) 
         rewards.append(reward)
@@ -197,10 +174,10 @@ def train(args):
             state, ep_ret = env.reset(), 0
 
         # updating the critic and policy networks' weights for the current time step
-        critic_loss, policy_loss_val = update(state, action, logprob_action, next_state, reward, done)  
+        critic_loss, policy_loss_val = update(state, action, next_state, reward, done)  
 
         # loss summary writing
-        write_loss_summary(writer, critic_loss, policy_loss_val, rewards, num_updates)
+        write_loss_summary(writer, critic_loss, policy_loss_val, rewards, t)
 
         # Saving the best model
         save_path = os.path.join(args.log_dir, 'own_sac_best_model.pt')

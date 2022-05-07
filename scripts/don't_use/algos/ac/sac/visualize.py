@@ -18,7 +18,7 @@ from buffer import ReplayBuffer
 from torch.utils.tensorboard import SummaryWriter
 
 def test(args):   
- 
+
     num_test_episodes = 1
     device = torch.device("cuda")
     """
@@ -60,7 +60,6 @@ def test(args):
             #print(state_tensor, state_tensor.shape)
             state, reward, done, info = test_env.step(get_action(state_tensor, deterministic=True).squeeze(0))
             episode_return += reward 
-            print(state)
 
             # Gather results for plotting
             total_reward_list.append(total_reward_list[-1] + reward)
@@ -73,8 +72,6 @@ def test(args):
             ego_pos_list.append(info["ego_pos"])
             ego_vel_list.append(info["ego_vel"])
             ego_acc_list.append(info["ego_acc"]) 
-
-        print(ego_acc_list)
 
         """
         ### Generate Plots
@@ -121,7 +118,7 @@ def test(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--log_dir", type=str, default="/tmp/sac/basic_sac", help="logging directory")
+    parser.add_argument("--log_dir", type=str, default="/tmp/sac/sac_for_basic", help="logging directory")
     
     args = parser.parse_args()
     
