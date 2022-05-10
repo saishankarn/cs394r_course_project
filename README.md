@@ -27,15 +27,9 @@ cs394r_course_project/
 
 
 
-# Download KITTI RAW
+# Experiments for noiseless environment
 ./data/download_datasets.sh raw
 
-# Download KITTI 3D Object
+# Experiments for noisy environment
 ./data/download_datasets.sh object
-
-# Download KITTI Odometry
-./data/download_datasets.sh odometry
-  
-# Download Argoverse Tracking v1.0
-./data/download_datasets.sh argoverse
 
