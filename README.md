@@ -84,7 +84,10 @@ python scripts/frameworks/SAC/main.py --train --noise_required --log_dir <path t
 ```
 
 # Experiments with Actor Critic framework 
-
+For Actor Critic, we mainly experimented with 2D state features with no noise. The run the corresponding training script,
+```
+python scripts/frameworks/AC/main.py
+```
 
 # Ablation studies for Soft Actor Critic framework
 
