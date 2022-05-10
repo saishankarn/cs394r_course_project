@@ -56,5 +56,9 @@ The training hyper parameters and the log directory can be edited in scripts/fra
 sh scripts/frameworks/SAC/run_multiple_seeds.sh
 ```
 
-
-
+# Experiments for the environment 3D state features
+The commands to run the training and testing for 3D state features are similar to the commands for 2D state features
+As an example, train RL agent for the noiseless case.
+```
+python scripts/frameworks/SAC/main.py --train --log_dir <path to the log directory> --env_id 1
+```
