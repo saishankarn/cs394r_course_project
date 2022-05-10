@@ -90,27 +90,3 @@ class CriticNetwork(nn.Module):
         state_action_value = self.fc3(state_action_value)
 
         return state_action_value.squeeze(-1) # returns batch_size x 1 tensor
-
-
-
-"""
-### Actor Critic Network class
-"""
-class ActorCriticNetwork(nn.Module):
-
-    def __init__(self, state_space, action_space, device):
-        super().__init__()
-
-        self.state_space = state_space
-        self.action_space = action_space
-        self.max_action = self.action_space.high[0]
-
-        # build policy and value functions
-        self.policy = ActorNetwork(self.state_space, self.action_space, self.max_action, device)
-        self.critic1 = CriticNetwork(self.state_space, self.action_space)
-        self.critic2 = CriticNetwork(self.state_space, self.action_space)
-
-    def act(self, state, deterministic=False):
-        with torch.no_grad():
-            action, _ = self.policy(state, deterministic=deterministic)
-            return action.numpy()

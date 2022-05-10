@@ -135,8 +135,8 @@ class SoftActorCritic():
 
             # What happens if the episode ends
             if done:
-                print("episode ended, return : ", episode_return)
-                print("distance remaining : ", info['dis_rem'])
+                #print("episode ended, return : ", episode_return)
+                #print("distance remaining : ", info['dis_rem'])
 
                 # logging the episode return 
                 writer.add_scalar('Returns/episodeReturns', episode_return, episode_num)
@@ -248,7 +248,9 @@ class SoftActorCritic():
                 save_path_critic2 = os.path.join(args.log_dir, 'own_sac_best_critic2.pt')
                 save_path_policy = os.path.join(args.log_dir, 'own_sac_best_policy.pt')
 
-                mean_reward = np.mean(rewards[-100:])            
+                mean_reward = np.mean(rewards[-100:])
+                print("time step :", time_step, ", mean training reward for the last 100 steps : ", mean_reward.round(4))
+
                 if mean_reward > best_mean_reward:
                     print("*****************************************************************************")
                     print("saving a better model")

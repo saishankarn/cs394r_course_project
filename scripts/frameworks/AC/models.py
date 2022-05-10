@@ -10,14 +10,14 @@ LOG_STD_MAX = 2
 LOG_STD_MIN = -20 
 
 """
-### Actor Network class 
+### Actor Network class
 """
 class ActorNetwork(nn.Module):
 
     def __init__(self, state_space, action_space, max_action, device):
         super(ActorNetwork, self).__init__() 
 
-        self.state_dim = state_space.shape[0] 
+        self.state_dim = state_space.shape[0]  
         self.action_dim = action_space.shape[0] 
 
         #print(self.state_dim, self.action_dim)
@@ -70,22 +70,23 @@ class ActorNetwork(nn.Module):
 """
 class CriticNetwork(nn.Module):
 
-    def __init__(self, state_space):
+    def __init__(self, state_space, action_space):
         super(CriticNetwork, self).__init__()
         self.state_dim = state_space.shape[0] 
+        self.action_dim = action_space.shape[0] 
 
-        self.fc1 = nn.Linear(self.state_dim, 256)
+        self.fc1 = nn.Linear(self.state_dim + self.action_dim, 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 1)
 
-    def forward(self, state):
+    def forward(self, state, action):
         # state should be a batch_size x state_dim tensor 
+        # action should be a batch_size x action_dim tensor
 
-        state_value = self.fc1(state)
-        state_value = F.relu(state_value)
-        state_value = self.fc2(state_value)
-        state_value = F.relu(state_value)
-        state_value = self.fc3(state_value)
+        state_action_value = self.fc1(torch.cat([state, action], dim=1))
+        state_action_value = F.relu(state_action_value)
+        state_action_value = self.fc2(state_action_value)
+        state_action_value = F.relu(state_action_value)
+        state_action_value = self.fc3(state_action_value)
 
-        return state_value.squeeze(-1) # returns batch_size x 1 tensor
-
+        return state_action_value.squeeze(-1) # returns batch_size x 1 tensor

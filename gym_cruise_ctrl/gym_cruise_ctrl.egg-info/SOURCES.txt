@@ -9,4 +9,9 @@ gym_cruise_ctrl.egg-info/top_level.txt
 gym_cruise_ctrl/envs/__init__.py
 gym_cruise_ctrl/envs/cruise_ctrl_env_2d.py
 gym_cruise_ctrl/envs/cruise_ctrl_env_3d.py
+gym_cruise_ctrl/envs/cruise_ctrl_env_8d.py
+gym_cruise_ctrl/envs/delay_handler.py
+gym_cruise_ctrl/envs/idm.py
 gym_cruise_ctrl/envs/input_generator.py
+gym_cruise_ctrl/envs/input_generator2.py
+gym_cruise_ctrl/envs/network_strength.py

@@ -10,12 +10,12 @@ import matplotlib.pyplot as plt
 
 import torch
 
-from ac_models import ActorNetwork, CriticNetwork 
+from models import ActorNetwork, CriticNetwork  
 from buffer import ReplayBuffer 
 
 from torch.utils.tensorboard import SummaryWriter
 
-class ActorCritic():
+class SoftActorCriticAvecTarget():
 
     def __init__(self, args):
     
@@ -35,14 +35,25 @@ class ActorCritic():
 
         """
         ### Initialize policy and value functions for the Soft Actor Critic
-        """ 
+        """
         device = torch.device("cuda")
         self.policy = ActorNetwork(self.state_space, self.action_space, self.max_action, device)
-        self.critic = CriticNetwork(self.state_space)
+        self.critic = CriticNetwork(self.state_space, self.action_space)
+
+        self.target_critic = deepcopy(self.critic)
+
+
+        # The Target network's weights are not updated through backpropogation
+        # The Target network's weights are only updated through polyak averaging
+        # Hence setting the requires_grad of the target network parameters to false
+        
+        for p in self.target_critic.parameters():
+            p.requires_grad = False
 
 
     def load_weights(self, critic_path, policy_path):
         self.critic.load_state_dict(torch.load(critic1_path))
+        self.target_critic.load_state_dict(torch.load(critic1_path))
         self.policy.load_state_dict(torch.load(policy_path))
 
     """
@@ -53,6 +64,7 @@ class ActorCritic():
         """
         ### Initializing the optimizers for policy and critic networks
         """
+        
         critic_parameters = self.critic.parameters()
         critic_optimizer = torch.optim.Adam(critic_parameters, lr=args.lr)
 
@@ -76,7 +88,7 @@ class ActorCritic():
 
         # to store the rewards per each time step
         rewards = []
-        best_mean_reward = -100
+        best_mean_reward = -100  
 
         # to visualize the training curve on tensorboard 
         writer = SummaryWriter(args.log_dir) 
@@ -133,6 +145,11 @@ class ActorCritic():
             ### Updating the policy's and critic's weights
             """
 
+            # taken from spinning up RL....
+            # tried Actor Critic by updating every single time step, but doesn't work 
+            # so, updating only after update_every number of steps 
+            # to compensate for less number of updates, we update update_every number of times 
+
             if time_step % args.update_every == 0:
                 
                 for update_idx in range(args.update_every):
@@ -153,16 +170,17 @@ class ActorCritic():
                     next_st = batch['next_state']
                     d = batch['done']
 
-                    state_value = self.critic(st) 
+                    q_value = self.critic(st, act) 
+         
         
                     with torch.no_grad(): 
-                        next_state_value = self.critic(next_st)
 
-                    bootstrapped_target = rew + args.gamma * (1 - d) * next_state_value
+                        next_act, logprob_next_act = self.policy(next_st)
+                        next_q_value = self.target_critic(next_st, next_act) 
 
-                    td_error = bootstrapped_target - state_value
+                    bootstrapped_target = rew + args.gamma * (1 - d) * next_q_value - alpha * logprob_next_act
 
-                    critic_loss = torch.square(td_error).mean()
+                    critic_loss = torch.square(q_value - bootstrapped_target).mean()
 
                     # logging the critic loss
                     writer.add_scalar('Loss/critic', critic_loss.item(), num_updates)
@@ -178,12 +196,11 @@ class ActorCritic():
 
                     # policy loss calculation
 
-                    act, logprob_act = self.policy(st) 
-
-                    state_value = self.critic(st)
-                    td_error = bootstrapped_target - state_value
-
-                    policy_loss = -1*logprob_act*td_error
+                    act, logprob_act = self.policy(st)
+                    
+                    q_value = self.critic(st, act)
+                    
+                    policy_loss = (alpha * logprob_act - q_value).mean()
                     policy_loss = policy_loss.mean()
                     
                     # logging the policy loss
@@ -197,14 +214,19 @@ class ActorCritic():
 
                     for p in critic_parameters:
                         p.requires_grad = True 
-
+ 
+                    # update target networks by polyak averaging.
+                    with torch.no_grad():
+                        for param, target_param in zip(self.critic.parameters(), self.target_critic.parameters()):
+                            target_param.data.mul_(args.polyak)
+                            target_param.data.add_((1 - args.polyak) * param.data)
 
                     # incrementing the num_updates variable
                     num_updates += 1 
 
                 # Saving the best model
-                save_path_critic = os.path.join(args.log_dir, 'own_ac_best_critic.pt')
-                save_path_policy = os.path.join(args.log_dir, 'own_ac_best_policy.pt')
+                save_path_critic = os.path.join(args.log_dir, 'own_sac_best_critic.pt')
+                save_path_policy = os.path.join(args.log_dir, 'own_sac_best_policy.pt')
 
                 mean_reward = np.mean(rewards[-100:])            
                 if mean_reward > best_mean_reward:
@@ -216,8 +238,8 @@ class ActorCritic():
                     torch.save(self.policy.state_dict(), save_path_policy)
 
                 # Saving the model after every 100,000 time steps 
-                save_path_critic = os.path.join(args.log_dir, 'own_ac_best_critic' + str(time_step) + '.pt')
-                save_path_policy = os.path.join(args.log_dir, 'own_ac_best_policy' + str(time_step) + '.pt')
+                save_path_critic = os.path.join(args.log_dir, 'own_sac_best_critic' + str(time_step) + '.pt')                                                                                                                                                                                                                                                                                                                                                                                                                                                         
+                save_path_policy = os.path.join(args.log_dir, 'own_sac_best_policy' + str(time_step) + '.pt')
 
                 if time_step % 100000 == 0:
                     print("*****************************************************************************")
@@ -231,8 +253,8 @@ class ActorCritic():
         """
         ### saving the final model
         """
-        save_path_critic = os.path.join(args.log_dir, 'own_ac_last_critic.pt')
-        save_path_policy = os.path.join(args.log_dir, 'own_ac_last_policy.pt')
+        save_path_critic = os.path.join(args.log_dir, 'own_sac_last_critic.pt')
+        save_path_policy = os.path.join(args.log_dir, 'own_sac_last_policy.pt')
         torch.save(self.critic.state_dict(), save_path_critic)
         torch.save(self.policy.state_dict(), save_path_policy)
 

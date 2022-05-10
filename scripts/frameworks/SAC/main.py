@@ -16,7 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("--polyak", type=float, default=0.995)
     parser.add_argument("--total_steps", type=int, default=1000000)
     parser.add_argument("--modify_alpha_after", type=int, default=100000)
-    parser.add_argument("--num_test_episodes", type=int, default=100)
+    parser.add_argument("--num_test_episodes", type=int, default=1000)
     
     parser.add_argument('--env_id', type=int, default=0, help='0 for 2D, 1 for 3D and 2 for 8D state space')
     parser.add_argument("--log_dir", type=str, default='/tmp/sac/basic_sac')

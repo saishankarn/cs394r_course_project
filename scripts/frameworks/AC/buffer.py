@@ -13,7 +13,7 @@ class ReplayBuffer:
 
         """
         ### storage arrays
-        """
+        """ 
         self.state_buffer = np.zeros((self.buffer_size, self.state_dim), dtype=np.float32)
         self.next_state_buffer = np.zeros((self.buffer_size, self.state_dim), dtype=np.float32)
         self.action_buffer = np.zeros((self.buffer_size, self.action_dim), dtype=np.float32)

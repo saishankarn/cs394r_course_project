@@ -1,2 +1,3 @@
 from gym_cruise_ctrl.envs.cruise_ctrl_env_2d import CruiseCtrlEnv0 
 from gym_cruise_ctrl.envs.cruise_ctrl_env_3d import CruiseCtrlEnv1
+from gym_cruise_ctrl.envs.cruise_ctrl_env_8d import CruiseCtrlEnv2

@@ -213,7 +213,7 @@ class CruiseCtrlEnv1(gym.Env):
 
 		### Terminating the episode
 		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
-			if rel_dis < 2:
+			#if rel_dis < 2:
 				#print("collided")
 			#print("distance remaining : ", rel_dis)
 			self.done = True 
