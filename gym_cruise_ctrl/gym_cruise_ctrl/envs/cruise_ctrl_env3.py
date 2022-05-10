@@ -12,7 +12,7 @@ from gym_cruise_ctrl.envs.input_generator import InputAccGenerator
 from gym_cruise_ctrl.envs.noise_model import NoisyDepth, NoisyVel
 from gym_cruise_ctrl.envs.idm import IDM
 
-class CruiseCtrlEnv2(gym.Env):
+class CruiseCtrlEnv3(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -21,22 +21,25 @@ class CruiseCtrlEnv2(gym.Env):
 			The action is a scalar in the range `[-1, 1]` that multiplies the max_acc
 			to give the acceleration of the ego vehicle. 
 		"""
-		self.max_acc = 1.5	# 1.5 m/s^2 
+		self.max_acc 	  = 1.5	# 1.5 m/s^2 
 
-		self.action_low  = -1.0
-		self.action_high = 1.0
+		self.action_low   = -1.0
+		self.action_high  =  1.0
 		self.action_space = gym.spaces.Box(low=self.action_low, high=self.action_high, shape=(1,))
 		
 		"""
 		### Observation Space
-			The observation is an ndarray of shape (2,) with each element in the range
+			The observation is an ndarray of shape (8,) with each element in the range
 			`[-inf, inf]`.   
-			1. Relative distance
-			2. Relative velocity
-			3. Ego acceleration
-			4. IDM1 action
+			1. Relative distance-1 (noisy)
+			2. Relative velocity-1 (noisy)
+			3. IDM action-1 (noisy)
+			4. Relative distance-2 (laggy)
+			5. Relative velocity-2 (laggy)
+			6. IDM action-2 (laggy)
+			7. Ego vehicle acceleration
 		"""
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(4,))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(7,))
 
 		"""
 		### Episodic Task
@@ -50,8 +53,7 @@ class CruiseCtrlEnv2(gym.Env):
 		### Safety specifications
 		self.safety_dist 				   = 5				# Required distance between the ego and front vehicle
 		self.violating_safety_dist_reward  = -10*self.delt	# Reward for getting too close to the front car
-		self.jerk_cost 					   = 10
-		self.nominal_max_gap_keeping_error = 15
+		self.jerk_cost_coef				   = 0.1
 
 		### Front vehicle specifications
 		self.fv_min_vel = 10 								# 10m/s or 30mph
@@ -100,19 +102,23 @@ class CruiseCtrlEnv2(gym.Env):
 		self.ego_init_pos = self.InitializeEgoPos()
 		self.ego_init_vel = self.InitializeEgoVel()
 		self.ego_state    = np.array([self.ego_init_pos, self.ego_init_vel], dtype=np.float32) 
-
-		self.ego_init_acc = 0.0
-		self.ego_jerk	  = 0.0
+		self.prev_acc     = 0.0
 		
-		rel_pose = self.fv_state - self.ego_state # The state is the relative position and speed
-		self.state = np.append(rel_pose, self.ego_init_acc)
+		rel_pose = self.fv_state - self.ego_state
 		
 		### Classical control
 		self.model_IDM_1 = IDM()
 		self.model_IDM_2 = IDM()
 
-		action_IDM_1 = self.model_IDM_1.action(self.state[0], -self.state[1], self.ego_state[1])
-		self.state = np.append(self.state, action_IDM_1)
+		action_IDM_1 = self.model_IDM_1.action(rel_pose[0], -rel_pose[1], self.ego_state[1])
+		action_IDM_1 = np.clip(action_IDM_1, -self.max_acc, self.max_acc)
+		action_IDM_2 = self.model_IDM_2.action(rel_pose[0], -rel_pose[1], self.ego_state[1])
+		action_IDM_2 = np.clip(action_IDM_2, -self.max_acc, self.max_acc)
+
+		self.state = np.append(rel_pose,   action_IDM_1)
+		self.state = np.append(self.state, rel_pose)
+		self.state = np.append(self.state, action_IDM_2)
+		self.state = np.append(self.state, self.prev_acc)
 
 	def InitializeFvPos(self):
 		if self.train:
@@ -195,54 +201,51 @@ class CruiseCtrlEnv2(gym.Env):
 		ego_vel = ego_vel + ego_acc*self.delt
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
-		self.ego_jerk = (ego_acc - self.state[2])/self.delt
-
-		
-		"""
-		# Noise corruption
-		"""
-		rel_pose = self.fv_state - self.ego_state
-		self.state = np.append(rel_pose.copy(), ego_acc)
-
-		if self.noise_required:
-			rel_pose[1] = self.vel_noise_model(rel_pose[1], rel_pose[0])
-			rel_pose[0] = self.depth_noise_model(rel_pose[0])
-
-		"""
-		# Observation update
-		"""
-		obs = np.append(rel_pose.copy(), ego_acc)
-
-		"""
-		### Classical control
-		"""
-		action_IDM_1 = self.model_IDM_1.action(obs[0], -obs[1], ego_vel)
-		
-		"""
-		### Final state and observation
-		"""
-		self.state = np.append(self.state, action_IDM_1)
-		obs   = np.append(obs, action_IDM_1)
-		
 		"""
 		# Reward function
 		"""
 		### Reward for moving forward
 		reward = ego_dist_trav/self.ego_max_dist
 		
-		### ACC cost function
-		# cost_gap_keeping_error = abs((rel_pose[0] - self.safety_dist)/self.nominal_max_gap_keeping_error)
-		cost_control_effort    = abs(action/max(abs(self.action_low), abs(self.action_high)))
-		cost_jerk			   = abs(self.ego_jerk/(self.max_acc*(self.action_high - self.action_low)/self.delt))
-		cost_jerk              = abs(self.ego_jerk)
-
-		reward = reward - 0*cost_control_effort - 0.0*cost_jerk
+		### Jerk cost function
+		jerk = abs(ego_acc - self.prev_acc)
+		self.prev_acc = ego_acc
+		# reward -= self.jerk_cost_coef*jerk
 
 		### Reward for being too close to the front vehicle
 		rel_dis = fv_pos - ego_pos
 		if rel_dis < self.safety_dist:
 			reward += self.violating_safety_dist_reward
 
+		"""
+		# Noise corruption
+		"""
+		rel_pose = self.fv_state - self.ego_state
+		rel_pose_noisy = np.array([self.depth_noise_model(rel_pose[0]), 
+								   self.vel_noise_model(rel_pose[1], rel_pose[0])]).flatten()
+		rel_pose_laggy = rel_pose.copy()
+
+		"""
+		### Classical control
+		"""
+		action_IDM_1 = self.model_IDM_1.action(rel_pose_noisy[0], -rel_pose_noisy[1], self.ego_state[1])
+		action_IDM_1 = np.clip(action_IDM_1, -self.max_acc, self.max_acc)
+		action_IDM_2 = self.model_IDM_2.action(rel_pose_laggy[0], -rel_pose_laggy[1], self.ego_state[1])
+		action_IDM_2 = np.clip(action_IDM_2, -self.max_acc, self.max_acc)
+
+		self.state = np.append(rel_pose_noisy, action_IDM_1)
+		self.state = np.append(self.state,     rel_pose_laggy)
+		self.state = np.append(self.state, 	   action_IDM_2)
+		self.state = np.append(self.state, 	   self.prev_acc)
+		
+		"""
+		### Observation
+		"""
+		obs = self.state.copy()
+
+		"""
+		### Environment handling 
+		"""
 		### Terminating the episode
 		if rel_dis <= 2 or self.episode_steps >= self.max_episode_steps:
 			print("distance remaining : ", rel_dis)
@@ -257,7 +260,8 @@ class CruiseCtrlEnv2(gym.Env):
 			"ego_pos" : ego_pos,
 			"ego_vel" : ego_vel,
 			"ego_acc" : ego_acc,
-			"idm_1"	  : action_IDM_1
+			"idm_1"	  : action_IDM_1,
+			"idm_2"	  : action_IDM_2
 		}
 
 		return obs, reward, self.done, info

@@ -51,8 +51,6 @@ class PlotTestResults():
         self.ego_pos_list = []
         self.ego_vel_list = []
         self.ego_acc_list = []
-
-        self.idm_1_list   = []
     
     def store(self, obs, reward, info):
         self.reward_to_go_list.append(self.reward_to_go_list[-1] + reward)
@@ -66,8 +64,6 @@ class PlotTestResults():
         self.ego_pos_list.append(info["ego_pos"])
         self.ego_vel_list.append(info["ego_vel"])
         self.ego_acc_list.append(info["ego_acc"])
-        
-        self.idm_1_list.append(info["idm_1"])
 
     def plot(self):
         if len(self.reward_to_go_list) > len(self.fv_pos_list):
@@ -76,7 +72,6 @@ class PlotTestResults():
         fig, axes = plt.subplots(2,3, figsize = (20,10))
 
         axes[0,0].plot(self.rel_dis_list)
-        axes[0,0].plot([0, 100], [5, 5])
         axes[0,1].plot(self.rel_vel_list)
         axes[0,2].plot(self.reward_to_go_list)
 
@@ -88,7 +83,6 @@ class PlotTestResults():
 
         axes[1,2].plot(self.fv_acc_list, color = 'b', label = 'Front vehicle')
         axes[1,2].plot(self.ego_acc_list, color = 'r',  label = 'Ego vehicle')
-        axes[1,2].plot(self.idm_1_list, color = 'g',  label = 'IDM_1')
         
         axes[1,0].legend()
         axes[1,1].legend()
@@ -112,12 +106,12 @@ class PlotTestResults():
         axes[1,1].set_ylabel('Velocity (m/s)')
         axes[1,2].set_ylabel('Acceleration (m/s)')
 
-        axes[0,0].set_xlim([0, 100])
-        axes[0,1].set_xlim([0, 100])
-        axes[0,2].set_xlim([0, 100])
-        axes[1,0].set_xlim([0, 100])
-        axes[1,1].set_xlim([0, 100])
-        axes[1,2].set_xlim([0, 100])
+        axes[0,0].set_xlim([0, 1000])
+        axes[0,1].set_xlim([0, 1000])
+        axes[0,2].set_xlim([0, 1000])
+        axes[1,0].set_xlim([0, 1000])
+        axes[1,1].set_xlim([0, 1000])
+        axes[1,2].set_xlim([0, 1000])
 
         plot_dir = 'plots/test_plots'
         os.makedirs(plot_dir, exist_ok=True)

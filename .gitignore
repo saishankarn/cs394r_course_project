@@ -4,3 +4,6 @@ img.png
 tmp/
 plots/
 logs/
+saved_models/
+gym_cruise_ctrl/build/
+gym_cruise_ctrl/gym_cruise_ctrl.egg-info

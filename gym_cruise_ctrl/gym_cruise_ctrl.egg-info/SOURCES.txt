@@ -8,7 +8,17 @@ gym_cruise_ctrl.egg-info/requires.txt
 gym_cruise_ctrl.egg-info/top_level.txt
 gym_cruise_ctrl/envs/__init__.py
 gym_cruise_ctrl/envs/cruise_ctrl_env.py
+gym_cruise_ctrl/envs/cruise_ctrl_env1.py
+gym_cruise_ctrl/envs/cruise_ctrl_env2.py
+gym_cruise_ctrl/envs/cruise_ctrl_env3.py
+gym_cruise_ctrl/envs/cruise_ctrl_env4.py
+gym_cruise_ctrl/envs/delay_handler.py
+gym_cruise_ctrl/envs/idm.py
 gym_cruise_ctrl/envs/input_generator.py
+gym_cruise_ctrl/envs/mpc.py
+gym_cruise_ctrl/envs/network_strength.py
+gym_cruise_ctrl/envs/noise_model.py
+gym_cruise_ctrl/envs/notepad.py
 gym_cruise_ctrl/envs/working1.py
 gym_cruise_ctrl/envs/working2.py
 gym_cruise_ctrl/envs/working_simple_cruise_ctrl_env.py
