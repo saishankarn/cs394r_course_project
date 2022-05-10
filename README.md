@@ -25,7 +25,7 @@ cs394r_course_project/
         └── AC # Actor Critic and Soft Actor Critic ablation
 ```
 
-```
+
 
 # Download KITTI RAW
 ./data/download_datasets.sh raw
@@ -38,4 +38,4 @@ cs394r_course_project/
   
 # Download Argoverse Tracking v1.0
 ./data/download_datasets.sh argoverse
-```
+
