@@ -1,4 +1,5 @@
 # CS394r_course_project
+## Context-driven control modulation
 #### Sai Shankar Narasimhan and Sharachchandra Bhat
 
 #### [Paper](https://drive.google.com/file/d/1PR1m6-9h_xudI8KWV1Pgo1yV5Co_1kT9/view?usp=sharing), [Video](https://youtu.be/kCg-QeSLrrU)
