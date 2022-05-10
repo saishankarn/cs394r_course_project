@@ -13,9 +13,13 @@ ing the effectiveness of our proposed solution. Link for the video presentation:
 ```
 cs394r_course_project/
 ├── gym_cruise_ctrl
-    ├── gym_cruise_ctrl
-        ├──envs
-           ├── cruise_ctrl_env_2d.py # Cruise control environment for 2D state features, environment name - 'cruise-ctrl-v0', id - 0
-           ├── cruise_ctrl_env_3d.py # Cruise control environment for 3D state features, environment name - 'cruise-ctrl-v1', id - 1
-           └── cruise_ctrl_env_8d.py # Cruise control environment for 8D state features, environment name - 'cruise-ctrl-v2', id - 2
-           
+|    └── gym_cruise_ctrl
+|        └── envs
+|            ├── cruise_ctrl_env_2d.py # Cruise control environment for 2D state features, environment name - 'cruise-ctrl-v0', id - 0
+|            ├── cruise_ctrl_env_3d.py # Cruise control environment for 3D state features, environment name - 'cruise-ctrl-v1', id - 1
+|            └── cruise_ctrl_env_8d.py # Cruise control environment for 8D state features, environment name - 'cruise-ctrl-v2', id - 2
+|           
+└── scripts
+    └── frameworks
+        ├── SAC # Soft Actor Critic implementation
+        └── AC # Actor Critic and Soft Actor Critic ablation
