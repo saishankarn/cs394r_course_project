@@ -84,11 +84,9 @@ The 8D state features include noisy local sensory-control inputs, hence we alway
 python scripts/frameworks/SAC/main.py --train --noise_required --log_dir <path to the log directory> --env_id 2
 ```
 
-# Experiments with Actor Critic framework 
-For Actor Critic, we mainly experimented with 2D state features with no noise. The run the corresponding training script,
+# Ablation studies for Soft Actor Critic framework
+To run our Actor Critic implementation and the ablation experiments on Soft Actor Critic, run
 ```
 python scripts/frameworks/AC/main.py
 ```
-
-# Ablation studies for Soft Actor Critic framework
-
+This runs all the ablation experiments in series.
