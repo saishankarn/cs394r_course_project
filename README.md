@@ -8,6 +8,19 @@
 In this project, we aim to tackle the problem of cruise control in the presence of noisy local sensory-control information and delayed perfect sensory-control information from the cloud. We propose a reinforcement learning based solution that effectively combines the real-time but noisy local information and accurate but delayed cloud information to perform the cruise control task. Additionally, we have provided qualitative and quantitative results validat-
 ing the effectiveness of our proposed solution. Link for the video presentation:https://youtu.be/kCg-QeSLrrU
 
+## Installation
+
+We recommend setting up a Python 3.8 Virtual Environment and installing all the dependencies listed in the requirements file. 
+
+```
+conda create -n env python=3.8
+git clone git@github.com:saishankarn/cs394r_course_project.git
+
+cd cs394r_course_project
+pip install -r requirements.txt
+```
+
+
 ## Repository Structure
 
 ```
