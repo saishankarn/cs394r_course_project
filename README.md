@@ -83,3 +83,8 @@ The 8D state features include noisy local sensory-control inputs, hence we alway
 python scripts/frameworks/SAC/main.py --train --noise_required --log_dir <path to the log directory> --env_id 2
 ```
 
+# Experiments with Actor Critic framework 
+
+
+# Ablation studies for Soft Actor Critic framework
+
