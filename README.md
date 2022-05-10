@@ -28,9 +28,12 @@ cs394r_course_project/
 
 
 # Experiments for the environment 2D state features
+Train RL agent for the noiseless case. The hyper parameters can be provided as arguments. Refer to scripts/frameworks/SAC/main.py 
 ```
-./data/download_datasets.sh raw
+python scripts/frameworks/SAC/main.py --train --log_dir <path to the log directory> 
 ```
+
+
 # Experiments for the environment 2D state features
 ```
 ./data/download_datasets.sh object
