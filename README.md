@@ -41,9 +41,14 @@ Test RL agent for the noiseless case for 1000 episodes.
 python scripts/frameworks/SAC/main.py --test --log_dir <path to the log directory> --num_test_episodes 1000
 ```
 Test RL agent for the noisy case for 1000 episodes. 
+The policy parameters are loaded from the "own_sac_best_policy.pt" in the log_dir provided.
 ```
 python scripts/frameworks/SAC/main.py --test --noise_required --log_dir <path to the log directory> --num_test_episodes 1000
 ```
+Visualize the generated ego vehicle's acceleration profile for an episode. 
+The policy parameters are loaded from the "own_sac_best_policy.pt" in the log_dir provided.
+```
+python scripts/frameworks/SAC/main.py --viz --log_dir <path to the log directory>
 
 
 
