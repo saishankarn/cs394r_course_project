@@ -28,8 +28,10 @@ cs394r_course_project/
 
 
 # Experiments for noiseless environment
+```
 ./data/download_datasets.sh raw
-
+```
 # Experiments for noisy environment
+```
 ./data/download_datasets.sh object
-
+```
