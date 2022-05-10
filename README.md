@@ -75,3 +75,11 @@ As an example, train RL agent for the noiseless case.
 ```
 python scripts/frameworks/SAC/main.py --train --log_dir <path to the log directory> --env_id 1
 ```
+
+# Experiments for the environment 8D state features
+The commands to run the training and testing for 8D state features are similar to the commands for 2D and 3D state features
+The 8D state features include noisy local sensory-control inputs, hence we always train the RL agent for the noisy case.
+```
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir <path to the log directory> --env_id 2
+```
+
