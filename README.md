@@ -50,5 +50,11 @@ The policy parameters are loaded from the "own_sac_best_policy.pt" in the log_di
 ```
 python scripts/frameworks/SAC/main.py --viz --log_dir <path to the log directory>
 ```
+Run a training routine for 10 random seeds.
+The training hyper parameters and the log directory can be edited in scripts/frameworks/SAC/run_multiple_seeds.sh
+```
+sh scripts/frameworks/SAC/run_multiple_seeds.sh
+```
+
 
 
