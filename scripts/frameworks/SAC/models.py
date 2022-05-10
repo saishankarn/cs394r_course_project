@@ -1,11 +1,11 @@
 import numpy as np
-import scipy.signal
+#import scipy.signal
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
-
+ 
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20 
 
@@ -30,7 +30,7 @@ class ActorNetwork(nn.Module):
         self.max_action = max_action
         #self.max_action = self.max_action.to(device)
 
-    def forward(self, state):
+    def forward(self, state, deterministic=False):
         # state should be a batch_size x state_dim tensor 
         
         out = self.fc1(state)
@@ -42,17 +42,22 @@ class ActorNetwork(nn.Module):
         log_std = self.fc_log_std_layer(out)
         log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
         std = torch.exp(log_std)
-        #print(mu.shape, std.shape)
+        # print(mu.shape, std.shape)
 
         action_distribution = Normal(mu, std)
-        sample_action = action_distribution.rsample() 
+        if deterministic:
+            sample_action = mu
+        else:
+            sample_action = action_distribution.rsample() 
+        
         #print(sample_action.shape, "----")
         #print(action_distribution, "----")
 
         logprob_action = action_distribution.log_prob(sample_action).sum(axis=-1)
-        #print(logprob_action.shape)
+        # print(logprob_action.shape)
         logprob_action -= (2*(np.log(2) - sample_action - F.softplus(-2*sample_action))).sum(axis=1)
-
+        #print("within policy")
+        #print(logprob_action.requires_grad)
         action = torch.tanh(sample_action) * self.max_action
 
         # Returned actions need to be in batch_size x action_dim shape 
@@ -86,6 +91,8 @@ class CriticNetwork(nn.Module):
 
         return state_action_value.squeeze(-1) # returns batch_size x 1 tensor
 
+
+
 """
 ### Actor Critic Network class
 """
@@ -103,7 +110,7 @@ class ActorCriticNetwork(nn.Module):
         self.critic1 = CriticNetwork(self.state_space, self.action_space)
         self.critic2 = CriticNetwork(self.state_space, self.action_space)
 
-    def act(self, state):
+    def act(self, state, deterministic=False):
         with torch.no_grad():
-            action, _ = self.policy(state)
+            action, _ = self.policy(state, deterministic=deterministic)
             return action.numpy()

@@ -1,1 +1,9 @@
-
+gym
+numpy
+pygame-2.1.2
+matplotlib
+itertools
+copy
+torch
+tensorboard
+scipy-1.8.0

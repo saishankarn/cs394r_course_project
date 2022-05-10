@@ -1,24 +1,13 @@
 """
-cruise-ctrl-v5
-environment that is working for the first experiment
-1. Two state features 
-2. No noise 
-
-modification from env1.py 
-working for spline inputs
-
-working with noise as well
-
-Jai Shri Ram 
+environment for the baseline-A and baseline-B experiments 
 """
 import gym
 from gym import error, spaces, utils
-from gym.utils import seeding
+from gym.utils import seeding 
 import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
-from gym_cruise_ctrl.envs.idm import IDM 
 from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile, Spline
 
 class NoisyDepth():
@@ -65,7 +54,7 @@ class NoisyVel():
 		
 		return true_vel + noise
 
-class CruiseCtrlEnv2D(gym.Env):
+class CruiseCtrlEnv0(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -110,7 +99,6 @@ class CruiseCtrlEnv2D(gym.Env):
 		self.fv_vel_list = self.fv_min_vel + self.fv_vel_list*(self.fv_max_vel - self.fv_min_vel)
 		self.fv_acc_list = self.fv_acc_list*(self.fv_max_vel - self.fv_min_vel)/self.delt 
 
-		self.classic_control = IDM() # classic control model 
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not

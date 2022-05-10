@@ -1,14 +1,5 @@
 """
-environment that is working for the second experiment
-1. Three state features (addition - previous action / acceleration) 
-2. No noise 
-
-for noiseless training 
-self.jerk_scaling_coef = 0.1, trained until convergence, then
-self.jerk_scaling_coef = 1, trained until convergence
-
-
-Jai Shri Ram 
+environment for the jerk reduction experiments
 """
 import gym
 from gym import error, spaces, utils
@@ -17,7 +8,6 @@ import numpy as np
 from os import path
 import pygame
 from pygame import gfxdraw
-from gym_cruise_ctrl.envs.idm import IDM 
 from gym_cruise_ctrl.envs.input_generator import PiecewiseLinearProfile, Spline
 
 class NoisyDepth():
@@ -64,7 +54,7 @@ class NoisyVel():
 		
 		return true_vel + noise
 
-class CruiseCtrlEnv(gym.Env):
+class CruiseCtrlEnv1(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -109,7 +99,6 @@ class CruiseCtrlEnv(gym.Env):
 		self.fv_vel_list = self.fv_min_vel + self.fv_vel_list*(self.fv_max_vel - self.fv_min_vel)
 		self.fv_acc_list = self.fv_acc_list*(self.fv_max_vel - self.fv_min_vel)/self.delt 
 
-		self.classic_control = IDM() # classic control model 
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
@@ -225,8 +214,8 @@ class CruiseCtrlEnv(gym.Env):
 		### Terminating the episode
 		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
 			if rel_dis < 2:
-				print("collided")
-			print("distance remaining : ", rel_dis)
+				#print("collided")
+			#print("distance remaining : ", rel_dis)
 			self.done = True 
 
 		self.episode_steps += 1
@@ -264,7 +253,8 @@ class CruiseCtrlEnv(gym.Env):
 			"fv_acc"  : fv_acc, 
 			"ego_pos" : ego_pos,
 			"ego_vel" : ego_vel,
-			"ego_acc" : ego_acc
+			"ego_acc" : ego_acc,
+			"dis_rem" : self.state[0],
 		}
 
 
@@ -276,8 +266,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### setting the fixed seed for validation purposes
 		"""
-		#if not self.train:
-		#	np.random.seed(seed)
+		if not self.train:
+			np.random.seed(seed)
 		
 		"""
 		### Reset the enviornment
