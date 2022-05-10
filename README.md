@@ -27,11 +27,11 @@ cs394r_course_project/
 
 
 
-# Experiments for noiseless environment
+# Experiments for the environment 2D state features
 ```
 ./data/download_datasets.sh raw
 ```
-# Experiments for noisy environment
+# Experiments for the environment 2D state features
 ```
 ./data/download_datasets.sh object
 ```
