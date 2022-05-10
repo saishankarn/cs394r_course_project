@@ -32,6 +32,19 @@ Train RL agent for the noiseless case. The hyper parameters can be provided as a
 ```
 python scripts/frameworks/SAC/main.py --train --log_dir <path to the log directory> 
 ```
+Train RL agent for the noisy case.
+```
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir <path to the log directory> 
+```
+Test RL agent for the noiseless case for 1000 episodes. 
+```
+python scripts/frameworks/SAC/main.py --test --log_dir <path to the log directory> --num_test_episodes 1000
+```
+Test RL agent for the noisy case for 1000 episodes. 
+```
+python scripts/frameworks/SAC/main.py --test --noise_required --log_dir <path to the log directory> --num_test_episodes 1000
+```
+
 
 
 # Experiments for the environment 2D state features
