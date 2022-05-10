@@ -23,3 +23,19 @@ cs394r_course_project/
     └── frameworks
         ├── SAC # Soft Actor Critic implementation
         └── AC # Actor Critic and Soft Actor Critic ablation
+```
+
+```
+
+# Download KITTI RAW
+./data/download_datasets.sh raw
+
+# Download KITTI 3D Object
+./data/download_datasets.sh object
+
+# Download KITTI Odometry
+./data/download_datasets.sh odometry
+  
+# Download Argoverse Tracking v1.0
+./data/download_datasets.sh argoverse
+```
