@@ -49,10 +49,6 @@ Visualize the generated ego vehicle's acceleration profile for an episode.
 The policy parameters are loaded from the "own_sac_best_policy.pt" in the log_dir provided.
 ```
 python scripts/frameworks/SAC/main.py --viz --log_dir <path to the log directory>
-
-
-
-# Experiments for the environment 2D state features
 ```
-./data/download_datasets.sh object
-```
+
+
