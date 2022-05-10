@@ -64,7 +64,7 @@ class NoisyVel():
 		
 		return true_vel + noise
 
-class CruiseCtrlEnv(gym.Env):
+class CruiseCtrlEnv2DRandom(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -114,6 +114,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
 		self.jerk_scaling_coef = 0.1 # factor by which to scale the jerk
+		self.movement_scaling_coef = 50
 
 		### for seed purposes 
 		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
@@ -142,28 +143,16 @@ class CruiseCtrlEnv(gym.Env):
 
 
 	def InitializeFvPos(self):
-		if self.train:
-			#return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
-			return 100 
-		else:
-			return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
+		return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
 
 	def InitializeFvVel(self):
-		if self.train:
-			return 0
-			#return min(self.fv_max_vel, max(5*np.random.randn() + 0, self.fv_min_vel))	# (25 +-5)m/s or 60mph
-		else:
-			return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
+		return min(self.fv_max_vel, max(5*np.random.randn() + 25, self.fv_min_vel))	# (25 +-5)m/s or 60mph
 
 	def InitializeEgoPos(self):
 		return 0
 
 	def InitializeEgoVel(self):
-		if self.train:
-			return 0
-			#return max (5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
-		else:
-			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+		return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 
 
 
@@ -180,9 +169,10 @@ class CruiseCtrlEnv(gym.Env):
 		### State update
 		fv_acc = self.fv_acc_list[self.episode_steps]
 		fv_vel = self.fv_vel_list[self.episode_steps]
-		if self.train:
-			fv_acc = 0 
-			fv_vel = 0
+		#if self.train:
+		#	fv_acc = 0 
+		#	fv_vel = 0
+
 		fv_pos = fv_pos + fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
@@ -222,6 +212,7 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### Reward for moving forward
 		reward = ego_dist_trav/self.ego_max_dist
+		reward = reward / self.movement_scaling_coef
 		
 		### Reward for being too close to the front vehicle
 		rel_dis = fv_pos - ego_pos 

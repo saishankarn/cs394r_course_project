@@ -22,26 +22,8 @@ if __name__ == "__main__":
      
     os.makedirs(args.log_dir, exist_ok=True)
     
-    env_name = 'cruise-ctrl-v5'
+    env_name = 'cruise-ctrl-v0'
     soft_actor_critic = SoftActorCritic(env_name)
 
-    policy_path = os.path.join(args.log_dir, 'own_sac_best_policy700000.pt')
-    episode_rewards, distance_remaining = soft_actor_critic.test(policy_path, args)
-    mean_episode_reward = sum(episode_rewards) / args.num_test_episodes
-    print(mean_episode_reward)
-
-
-    reduced_distance_remaining = [i for i in distance_remaining if i > 5]
-    mean_distance_remaining = sum(reduced_distance_remaining) / len(reduced_distance_remaining)
-    print(mean_distance_remaining, len(reduced_distance_remaining))
-
-    lesser_than_5 = [i for i in distance_remaining if i < 5 and i > 2]
-    mean_distance_remaining = sum(lesser_than_5) / len(lesser_than_5)
-    print(mean_distance_remaining, len(lesser_than_5))
-
-    lesser_than_2 = [i for i in distance_remaining if i <= 2]
-    mean_distance_remaining = sum(lesser_than_2) / len(lesser_than_2)
-    print(mean_distance_remaining, len(lesser_than_2))
-
-    print(lesser_than_5)
-    print(lesser_than_2)
+    policy_path = os.path.join(args.log_dir, 'own_sac_best_policy.pt')
+    episode_rewards, distance_remaining = soft_actor_critic.visualize(policy_path, args)

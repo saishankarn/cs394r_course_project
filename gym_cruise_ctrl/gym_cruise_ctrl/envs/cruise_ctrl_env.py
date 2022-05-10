@@ -108,7 +108,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
-		self.jerk_scaling_coef = 0.1 # factor by which to scale the jerk
+		self.jerk_scaling_coef = 1 # factor by which to scale the jerk
 
 		### for seed purposes 
 		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
@@ -158,8 +158,8 @@ class CruiseCtrlEnv(gym.Env):
 			return 0
 			#return max (5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 		else:
-			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
-
+			#return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+			return self.fv_vel_list[0]
 
 
 	def step(self, action): 
@@ -259,7 +259,8 @@ class CruiseCtrlEnv(gym.Env):
 			"fv_acc"  : fv_acc, 
 			"ego_pos" : ego_pos,
 			"ego_vel" : ego_vel,
-			"ego_acc" : ego_acc
+			"ego_acc" : ego_acc,
+			"dis_rem" : self.state[0],
 		}
 
 
@@ -271,8 +272,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### setting the fixed seed for validation purposes
 		"""
-		#if not self.train:
-		#	np.random.seed(seed)
+		if not self.train:
+			np.random.seed(seed)
 		
 		"""
 		### Reset the enviornment

@@ -1,2 +1,4 @@
 __pycache__/
 depth_analysis
+scripts/sac/working_weights
+scripts/sac/ac_logs

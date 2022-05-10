@@ -1,4 +1,5 @@
 """
+cruise-ctrl-v5
 environment that is working for the first experiment
 1. Two state features 
 2. No noise 
@@ -64,7 +65,7 @@ class NoisyVel():
 		
 		return true_vel + noise
 
-class CruiseCtrlEnv(gym.Env):
+class CruiseCtrlEnv2D(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -248,7 +249,8 @@ class CruiseCtrlEnv(gym.Env):
 			"fv_acc"  : fv_acc, 
 			"ego_pos" : ego_pos,
 			"ego_vel" : ego_vel,
-			"ego_acc" : ego_acc
+			"ego_acc" : ego_acc,
+			"dis_rem" : self.state[0],
 		}
 		#print(obs, self.state)
 		return obs, reward, self.done, info
@@ -257,8 +259,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### setting the fixed seed for validation purposes
 		"""
-		#if not self.train:
-		#	np.random.seed(seed)
+		if not self.train:
+			np.random.seed(seed)
 		
 		"""
 		### Reset the enviornment

@@ -3,11 +3,6 @@ environment that is working for the first experiment
 1. Two state features 
 2. No noise 
 
-modification from env1.py 
-working for spline inputs
-
-working with noise as well
-
 Jai Shri Ram 
 """
 import gym
@@ -64,7 +59,7 @@ class NoisyVel():
 		
 		return true_vel + noise
 
-class CruiseCtrlEnv(gym.Env):
+class CruiseCtrlEnvSc(gym.Env):
 
 	def __init__(self, train=True, noise_required=False): 
 
@@ -84,7 +79,7 @@ class CruiseCtrlEnv(gym.Env):
 			The observation is an ndarray of shape (2,) with each element in the range
 			`[-inf, inf]`.   
 		"""
-		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,))
+		self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(3,))
 
 		"""
 		### Episodic Task
@@ -113,7 +108,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.depth_noise_model = NoisyDepth() # depth noise model class
 		self.vel_noise_model = NoisyVel() # velocity noise model class 
 		self.noise_required = noise_required # whether noise is required or not
-		self.jerk_scaling_coef = 0.1 # factor by which to scale the jerk
+		self.jerk_scaling_coef = 1 # factor by which to scale the jerk
 
 		### for seed purposes 
 		self.train = train # are we training or validating? For validating, we set the seed to get constant initializations
@@ -140,7 +135,7 @@ class CruiseCtrlEnv(gym.Env):
 		self.screen = None
 
 
-
+ 
 	def InitializeFvPos(self):
 		if self.train:
 			#return max(20*np.random.randn() + 100, 10) # (100 +- 20)m
@@ -163,8 +158,8 @@ class CruiseCtrlEnv(gym.Env):
 			return 0
 			#return max (5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
 		else:
-			return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
-
+			#return max(5*np.random.randn() + 10, 0)	# (10 +-5)m/s or 30mph
+			return self.fv_vel_list[0]
 
 
 	def step(self, action): 
@@ -172,6 +167,9 @@ class CruiseCtrlEnv(gym.Env):
 		fv_vel  = self.fv_state[1]
 		ego_pos = self.ego_state[0]
 		ego_vel = self.ego_state[1] 
+
+
+
 
 		"""
 		### Front vehicle state transition
@@ -186,6 +184,9 @@ class CruiseCtrlEnv(gym.Env):
 		fv_pos = fv_pos + fv_vel*self.delt + 0.5*fv_acc*self.delt**2
 		self.fv_state = np.array([fv_pos, fv_vel], dtype=np.float32)
 		
+
+
+
 		"""
 		### Ego vehicle state transition
 		"""
@@ -199,23 +200,7 @@ class CruiseCtrlEnv(gym.Env):
 		ego_vel = min(ego_vel + ego_acc*self.delt, self.ego_max_vel)
 		self.ego_state = np.array([ego_pos, ego_vel], dtype=np.float32)
 
-		"""
-		# MDP state update
-		"""
-		self.state = self.fv_state - self.ego_state
-
-		"""
-		# Observation update
-		"""
-		obs = self.state.copy()
-		#obs = np.zeros((3,))
-		#obs[2] = self.prev_acc 
-		#obs[1] = self.state[1]
-		#obs[0] = self.state[0]
-
-		if self.noise_required:
-			obs[1] = self.vel_noise_model(obs[1], obs[0])
-			obs[0] = self.depth_noise_model(obs[0])
+		
 
 		"""
 		# Reward function
@@ -229,18 +214,44 @@ class CruiseCtrlEnv(gym.Env):
 			reward += self.violating_safety_dist_reward  
 
 		### Reward for smooth acceleration 
-		#jerk = abs(ego_acc - self.prev_acc) 
-		#reward -= jerk * self.jerk_scaling_coef
-		#self.prev_acc = ego_acc 
+		jerk = abs(ego_acc - self.prev_acc) 
+		reward -= jerk * self.jerk_scaling_coef
 
 		### Terminating the episode
-		if rel_dis < 2 or self.episode_steps >= self.max_episode_steps:
+		if rel_dis < self.safety_dist or self.episode_steps >= self.max_episode_steps:
 			if rel_dis < 2:
 				print("collided")
 			print("distance remaining : ", rel_dis)
 			self.done = True 
 
 		self.episode_steps += 1
+
+
+
+
+
+		"""
+		# MDP state update
+		"""
+		self.state = self.fv_state - self.ego_state
+
+		### Now the state has threee features
+		self.prev_acc = ego_acc 
+		self.state = np.append(self.state, self.prev_acc)
+
+
+
+
+		"""
+		# Observation update
+		"""
+		obs = self.state.copy()
+		if self.noise_required:
+			obs[1] = self.vel_noise_model(obs[1], obs[0])
+			obs[0] = self.depth_noise_model(obs[0])
+
+
+
 
 		info = {
 			"fv_pos"  : fv_pos,
@@ -250,6 +261,9 @@ class CruiseCtrlEnv(gym.Env):
 			"ego_vel" : ego_vel,
 			"ego_acc" : ego_acc
 		}
+
+
+
 		#print(obs, self.state)
 		return obs, reward, self.done, info
 
@@ -257,8 +271,8 @@ class CruiseCtrlEnv(gym.Env):
 		"""
 		### setting the fixed seed for validation purposes
 		"""
-		#if not self.train:
-		#	np.random.seed(seed)
+		if not self.train:
+			np.random.seed(seed)
 		
 		"""
 		### Reset the enviornment
@@ -289,20 +303,22 @@ class CruiseCtrlEnv(gym.Env):
 		### MDP state
 		self.state = self.fv_state - self.ego_state # The state is the relative position and speed
 
+		### Previous acceleration
+		self.prev_acc = 0
+
+		### Now the state has threee features
+		self.state = np.append(self.state, self.prev_acc)
+
 		### Observation 
 		obs = self.state.copy()
-		#obs = np.zeros((3,))
-		#obs[2] = 0
-		#obs[1] = self.state[1]
-		#obs[0] = self.state[0]
 		if self.noise_required:
 			#print(self.noise_required)
 			obs[1] = self.vel_noise_model(obs[1], obs[0])
 			obs[0] = self.depth_noise_model(obs[0])
 
-
-		### Previous acceleration
-		#self.prev_acc = 0
+		#print('obs')
+		#rint(obs)
+		
 
 		return obs 
 
