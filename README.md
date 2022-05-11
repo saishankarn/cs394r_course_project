@@ -89,4 +89,4 @@ To run our Actor Critic implementation and the ablation experiments on Soft Acto
 ```
 python scripts/frameworks/AC/main.py
 ```
-This runs all the ablation experiments in series.
+This runs all the ablation experiments in series. To get the summary for updating the actor and critic networks at 1, 50, and 100 time steps, adjust the "update_every" parameter.
