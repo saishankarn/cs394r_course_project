@@ -68,7 +68,34 @@ if __name__ == "__main__":
 
     if args.test:
         policy_path = os.path.join(args.log_dir, 'own_sac_best_policy.pt')
-        soft_actor_critic.test(policy_path, args)
+        episode_rewards, distance_remaining = soft_actor_critic.test(policy_path, args)
+        mean_episode_reward = sum(episode_rewards) / args.num_test_episodes
+        #print("mean episode return : ", mean_episode_reward)
+
+
+        reduced_distance_remaining = [i for i in distance_remaining if i > 5]
+        mean_distance_remaining = sum(reduced_distance_remaining) / len(reduced_distance_remaining)
+        print("For successful episodes : ")
+        print("mean distance remaining - ", mean_distance_remaining.round(4))
+        print("number of successful episodes out of 1000 : ", len(reduced_distance_remaining))
+
+        lesser_than_5 = [i for i in distance_remaining if i < 5 and i > 2]
+        if len(lesser_than_5) != 0:
+            mean_distance_remaining = sum(lesser_than_5) / len(lesser_than_5)
+        else:
+            mean_distance_remaining = 0.0
+        print("For episodes that ended between 2 and 5m : ")
+        print("mean distance remaining - ", mean_distance_remaining)
+        print("number of episodes out of 1000 : ", len(lesser_than_5))
+
+        lesser_than_2 = [i for i in distance_remaining if i <= 2]
+        if len(lesser_than_2) != 0:
+            mean_distance_remaining = sum(lesser_than_2) / len(lesser_than_2)
+        else:
+            mean_distance_remaining = 0.0
+        print("For episodes that collided : ")
+        print("mean distance remaining - ", mean_distance_remaining)
+        print("number of episodes out of 1000 : ", len(lesser_than_2))
 
     if args.viz:
         policy_path = os.path.join(args.log_dir, 'own_sac_best_policy.pt')
