@@ -94,6 +94,6 @@ python scripts/frameworks/SAC/main.py --train --noise_required --log_dir <path t
 # Ablation studies for Soft Actor Critic framework
 To run our Actor Critic implementation and the ablation experiments on Soft Actor Critic, run
 ```
-python scripts/frameworks/AC/main.py
+python scripts/frameworks/AC/main.py --log_dir <path to the log directory>
 ```
 This runs all the ablation experiments in series. To get the summary for updating the actor and critic networks at 1, 50, and 100 time steps, adjust the "update_every" parameter.
