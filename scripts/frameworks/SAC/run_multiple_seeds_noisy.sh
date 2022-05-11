@@ -1,0 +1,10 @@
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 0 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 1 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 2 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 3 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 4 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 5 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 6 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 7 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 8 &
+python scripts/frameworks/SAC/main.py --train --noise_required --log_dir /tmp/sac/noisy/2_features/run0 --random_seed 9 &
