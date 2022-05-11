@@ -14,10 +14,17 @@ We recommend setting up a Python 3.8 Virtual Environment and installing all the 
 
 ```
 conda create -n env python=3.8
+conda activate env
+
 git clone git@github.com:saishankarn/cs394r_course_project.git
 
 cd cs394r_course_project
 pip install -r requirements.txt
+
+To build our cruise control environments, 
+
+cd gym_cruise_ctrl
+pip install -e .
 ```
 
 
